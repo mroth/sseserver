@@ -1,0 +1,21 @@
+<html>
+  <body>
+    <script>
+    // connect to an event source endpoint and print results
+    es1 = new EventSource("http://localhost:8001/subscribe/time");
+    es1.onmessage = function(event) {
+        console.log("TICK! The time is currently: " + event.data);
+    };
+
+    // connect to a different event source endpoint and register event handlers
+    es2 = new EventSource("http://localhost:8001/subscribe/pets")
+    es2.addEventListener("new-dog", function(event) {
+        console.log("WOOF! Hello " + event.data);
+    }, false);
+    es2.addEventListener("new-cat", function(event) {
+        console.log("MEOW! Hello " + event.data);
+    }, false);
+    </script>
+
+  </body>
+</html>
