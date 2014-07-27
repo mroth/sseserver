@@ -20,7 +20,7 @@ Words.
 
 API
 ---
-See the [godocs](https://godoc.org/github.com/mroth/emojitrack-gostreamer/sseserver).
+See the [godocs](https://godoc.org/github.com/mroth/sseserver).
 
 
 Example
@@ -31,7 +31,7 @@ A simple Go program utilizing this package:
 package main
 
 import (
-    "github.com/mroth/emojitrack-gostreamer/sseserver"
+    "github.com/mroth/sseserver"
     "time"
 )
 

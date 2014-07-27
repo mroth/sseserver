@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/mroth/emojitrack-gostreamer/sseserver"
+	"github.com/mroth/sseserver"
 	"time"
 )
 
