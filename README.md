@@ -1,10 +1,11 @@
 package sseserver
 =================
 
-An encapsulated Server-Sent Events endpoint server.  Abstracts multiple
-namespaced HTTP endpoints so that clients can subscribe to messages on on a
-specific topic.  Should be thread-safe, so you can run multiple instances
-concurrently (for example, on different ports) if needed.
+An encapsulated high-performance Server-Sent Events endpoint server for Go.
+
+Abstracts multiple namespaced HTTP endpoints so that clients can subscribe to
+messages on on a specific topic.  Should be thread-safe, so you can run multiple
+instances concurrently (for example, on different ports) if needed.
 
 Designed for high throughput as primary performance consideration. In my
 preliminary benchmarking this can handle ~100K/sec messages broadcast across
@@ -12,10 +13,16 @@ preliminary benchmarking this can handle ~100K/sec messages broadcast across
 e.g. with `GOMAXPROCS=1`).  There still remains quite a bit of optimization to
 be done so it should get faster if needed.
 
+This currently powers the streaming service for
+[Emojitracker](http://emojitracker.com) in production, where it has routinely
+handled dispatching hundreds of messages per second to thousands of clients
+simultaneously, on a single Heroku dyno.
+
+
 Why SSE vs Websockets?
 ----------------------
 
-Words.
+Words will go here.
 
 
 API
@@ -23,8 +30,15 @@ API
 See the [godocs](https://godoc.org/github.com/mroth/sseserver).
 
 
-Example
--------
+Admin Page
+----------
+By default, an admin status page is available for easy monitoring:
+
+![screenshot](http://f.cl.ly/items/1v2X1k342K3p0K1O2x0B/ssestreamer-admin.png)
+
+
+Example Usage
+-------------
 A simple Go program utilizing this package:
 
 ```go
@@ -135,7 +149,7 @@ Yep, it's that simple.
 
 Namespace Nesting
 -----------------
-As per `$VERSION`, a client can subscribe to a parent namespace. E.g. a subscription
+A client can subscribe to a parent namespace. E.g. a subscription
 to `/pets` will receive messages broadcast to both `/pets/dogs` and
 `/pets/cats`.
 
