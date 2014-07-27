@@ -1,6 +1,7 @@
 package sseserver
 
 import (
+	"github.com/GeertJohan/go.rice"
 	. "github.com/azer/debug"
 	"log"
 	"net/http"
@@ -50,7 +51,24 @@ func (s *Server) Serve(addr string) {
 	})
 
 	http.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "sseserver/views/admin.html")
+		// kinda ridiculous workaround for serving a single static file, sigh.
+		// works for now without changing paths tho...
+		box, err := rice.FindBox("views")
+		if err != nil {
+			log.Fatalf("error opening rice.Box: %s\n", err)
+		}
+
+		file, err := box.Open("admin.html")
+		if err != nil {
+			log.Fatalf("could not open file: %s\n", err)
+		}
+
+		fstat, err := file.Stat()
+		if err != nil {
+			log.Fatalf("could not stat file: %s\n", err)
+		}
+
+		http.ServeContent(w, r, fstat.Name(), fstat.ModTime(), file)
 	})
 
 	http.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {
