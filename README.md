@@ -16,7 +16,8 @@ be done so it should get faster if needed.
 This currently powers the streaming service for
 [Emojitracker](http://emojitracker.com) in production, where it has routinely
 handled dispatching hundreds of messages per second to thousands of clients
-simultaneously, on a single Heroku dyno.
+simultaneously, on a single Heroku dyno. (The previous NodeJS solution required
+dozens of dynos to handle the same load.)
 
 
 Why SSE vs Websockets?
