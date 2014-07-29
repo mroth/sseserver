@@ -1,7 +1,8 @@
 package sseserver
 =================
 
-An encapsulated high-performance Server-Sent Events endpoint server for Go.
+An encapsulated high-performance Server-Sent Events endpoint server for Go with 
+advanced namespacing support.
 
 Abstracts multiple namespaced HTTP endpoints so that clients can subscribe to
 messages on on a specific topic.  Should be thread-safe, so you can run multiple
