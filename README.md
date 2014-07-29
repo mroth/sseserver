@@ -22,7 +22,7 @@ simultaneously, on a single Heroku dyno.
 Why SSE vs Websockets?
 ----------------------
 
-Words will go here.
+Words will go here.  In the meantime, there is a [semi-decent discussion on StackOverflow](http://stackoverflow.com/questions/5195452/websockets-vs-server-sent-events-eventsource) about the topic.
 
 
 API
@@ -155,7 +155,7 @@ to `/pets` will receive messages broadcast to both `/pets/dogs` and
 
 Acknowledgements
 ----------------
-A lot of the ideas for handling the connection hub in idiomatic Go originally
+A lot of the initial ideas for handling the connection hub in idiomatic Go originally
 came from cribbing from Gary Burd's [go-websocket-chat][1], but has now been
 modified to work with SSE instead of Websockets and to be encapsulated in a
 thread-safe way.
