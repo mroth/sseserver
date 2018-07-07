@@ -7,7 +7,7 @@ import (
 
 func mockHub(initialConnections int) (h *hub) {
 	h = newHub()
-	go h.run()
+	h.Start()
 	for i := 0; i < initialConnections; i++ {
 		h.register <- mockConn("/test")
 	}
@@ -20,6 +20,31 @@ func mockConn(namespace string) *connection {
 		created:   time.Now(),
 		namespace: namespace,
 	}
+}
+
+func mockSinkedHub(initialConnections int) (h *hub) {
+	h = newHub()
+	h.Start()
+	for i := 0; i < initialConnections; i++ {
+		h.register <- mockSinkedConn("/test")
+	}
+	return h
+}
+
+// mock a connection that sinks data sent to it
+func mockSinkedConn(namespace string) *connection {
+	c := &connection{
+		send:      make(chan []byte, 256),
+		created:   time.Now(),
+		namespace: namespace,
+	}
+	go func() {
+		for range c.send {
+			// no-op, but will break loop if chan is closed
+			// (versus using <-c.send in infinite loop)
+		}
+	}()
+	return c
 }
 
 type deliveryCase struct {
@@ -36,6 +61,7 @@ func TestBroadcastSingleplex(t *testing.T) {
 
 	//broadcast to foo channel
 	h.broadcast <- SSEMessage{"", []byte("yo"), "/foo"}
+	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
 	d := []deliveryCase{
@@ -63,6 +89,7 @@ func TestBroadcastMultiplex(t *testing.T) {
 	h.broadcast <- SSEMessage{"", []byte("yo"), "/foo"}
 	h.broadcast <- SSEMessage{"", []byte("yo"), "/foo"}
 	h.broadcast <- SSEMessage{"", []byte("yo"), "/bar"}
+	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
 	d := []deliveryCase{
@@ -94,6 +121,7 @@ func TestBroadcastWildcards(t *testing.T) {
 	h.broadcast <- SSEMessage{"", []byte("woof"), "/pets/dogs"}
 	h.broadcast <- SSEMessage{"", []byte("meow"), "/pets/cats"}
 	h.broadcast <- SSEMessage{"", []byte("wahh"), "/kids"}
+	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
 	d := []deliveryCase{
@@ -110,20 +138,15 @@ func TestBroadcastWildcards(t *testing.T) {
 }
 
 func benchmarkBroadcast(conns int, b *testing.B) {
-	h := mockHub(conns)
-
+	b.StopTimer()
+	h := mockSinkedHub(conns)
+	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		h.broadcast <- SSEMessage{"", []byte("foo bar woo"), "/test"}
 		h.broadcast <- SSEMessage{"event-foo", []byte("foo bar woo"), "/test"}
-
-		// mock reading the connections
-		// in theory this happens concurrently on another goroutine but here we will
-		// exhaust the buffer quick if we dont force the read
-		for c := range h.connections {
-			<-c.send
-			<-c.send
-		}
 	}
+	b.StopTimer()
+	h.Shutdown()
 }
 
 func BenchmarkBroadcast1(b *testing.B)    { benchmarkBroadcast(1, b) }

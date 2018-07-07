@@ -37,15 +37,26 @@ func (c *connection) Status() connectionStatus {
 	}
 }
 
+// writer is the event loop that attempts to send all messages on the active
+// http connection.  it will detect if the http connection is closed and autoexit.
+// it will also exit if the connection's send channel is closed (indicating a shutdown)
 func (c *connection) writer() {
 	cn := c.w.(http.CloseNotifier)
 	closer := cn.CloseNotify()
-
+L:
 	for {
 		select {
-		case msg := <-c.send:
+		case msg, ok := <-c.send:
+			if !ok {
+				// chan was closed e.g. our hub told us we have nothing left to do
+				break L
+			}
+			// write message out to client
 			_, err := c.w.Write(msg)
 			if err != nil {
+				// we had an error writing to client
+				// TODO: we should probably close out
+				// currently we just wait to next message...
 				break
 			}
 			if f, ok := c.w.(http.Flusher); ok {

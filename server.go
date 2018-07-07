@@ -26,13 +26,12 @@ func NewServer() *Server {
 
 	// start up our actual internal connection hub
 	// which we keep in the server struct as private
-	var h = newHub()
-	s.hub = h
-	go h.run()
+	s.hub = newHub()
+	s.hub.Start()
 
 	// expose just the broadcast chanel to public
 	// will be typecast to send-only
-	s.Broadcast = h.broadcast
+	s.Broadcast = s.hub.broadcast
 
 	// return handle
 	return &s

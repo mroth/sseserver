@@ -1,6 +1,7 @@
 package sseserver
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ type hub struct {
 	connections map[*connection]bool // Registered connections.
 	register    chan *connection     // Register requests from the connections.
 	unregister  chan *connection     // Unregister requests from connections.
+	shutdown    chan bool            // Internal chan to handle shutdown notification
 	sentMsgs    uint64               // Msgs broadcast since startup
 	startupTime time.Time            // Time hub was created
 }
@@ -25,20 +27,47 @@ func newHub() *hub {
 		connections: make(map[*connection]bool),
 		register:    make(chan *connection),
 		unregister:  make(chan *connection),
+		shutdown:    make(chan bool),
 		startupTime: time.Now(),
 	}
+}
+
+// Shutdown method for cancellation of hub run loop.
+//
+// right now we are only using this in tests, in the future we may want to be
+// able to more gracefully shut down a Server in production as well, but...
+//
+// TODO: need to do some thinking before exposing this interface more broadly.
+func (h *hub) Shutdown() {
+	h.shutdown <- true
+}
+
+// Start begins the main run loop for a hub in a background go func.
+func (h *hub) Start() {
+	go h.run()
+}
+
+func (h *hub) _unregister(c *connection) {
+	delete(h.connections, c)
+	close(c.send)
 }
 
 func (h *hub) run() {
 	for {
 		select {
+		case <-h.shutdown:
+			debug.Debug(fmt.Sprintf("hub shutdown requested, cancelling %d connections...", len(h.connections)))
+			for c := range h.connections {
+				h._unregister(c)
+			}
+			debug.Debug("...All connections cancelled, shutting down now.")
+			return
 		case c := <-h.register:
 			debug.Debug("new connection being registered for " + c.namespace)
 			h.connections[c] = true
 		case c := <-h.unregister:
 			debug.Debug("connection told us to unregister for " + c.namespace)
-			delete(h.connections, c)
-			close(c.send)
+			h._unregister(c)
 		case msg := <-h.broadcast:
 			h.sentMsgs++
 			formattedMsg := msg.sseFormat()
@@ -50,13 +79,18 @@ func (h *hub) run() {
 						debug.Debug("cant pass to a connection send chan, buffer is full -- kill it with fire")
 						delete(h.connections, c)
 						close(c.send)
-						/* TODO: figure out what to do here...
-						we are already closing the send channel, in *theory* shouldn't the
-						connection clean up? I guess possible it doesnt if its deadlocked or
-						something... is it?
+						/*
+							we are already closing the send channel, in *theory* shouldn't the
+							connection clean up? I guess possible it doesnt if its deadlocked or
+							something... is it?
 
-						we want to make sure to always close the HTTP connection though,
-						so server can never fill up max num of open sockets.
+							closing the send channel will result in our handleFunc exiting, which Go
+							treats as meaning we are done with the connection... but what if it's wedged?
+
+							TODO: investigate using panic in a http.Handler, to absolutely force
+
+							we want to make sure to always close the HTTP connection though,
+							so server can never fill up max num of open sockets.
 						*/
 					}
 				}
