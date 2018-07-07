@@ -10,12 +10,12 @@ var messageTests = []struct {
 	{
 		SSEMessage{"", []byte("foobar"), "abcd"},
 		[]byte("data:foobar\n\n"),
-		"A message with only data field",
+		"DataFieldOnly",
 	},
 	{
 		SSEMessage{"e12", []byte("foobar"), "abcd"},
 		[]byte("event:e12\ndata:foobar\n\n"),
-		"Message with event and data field",
+		"Event+DataField",
 	},
 }
 
@@ -29,13 +29,11 @@ func TestFormat(t *testing.T) {
 }
 
 func BenchmarkFormat(b *testing.B) {
-	b.StopTimer()
-
 	for _, test := range messageTests {
-		b.StartTimer()
-		for i := 0; i < b.N; i++ {
-			test.msg.sseFormat()
-		}
-		b.StopTimer()
+		b.Run(test.description, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				test.msg.sseFormat()
+			}
+		})
 	}
 }

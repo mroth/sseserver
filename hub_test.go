@@ -1,14 +1,15 @@
 package sseserver
 
 import (
+	"strconv"
 	"testing"
 	"time"
 )
 
-func mockHub(initialConnections int) (h *hub) {
+func mockHub(numConnections int) (h *hub) {
 	h = newHub()
 	h.Start()
-	for i := 0; i < initialConnections; i++ {
+	for i := 0; i < numConnections; i++ {
 		h.register <- mockConn("/test")
 	}
 	return h
@@ -22,11 +23,13 @@ func mockConn(namespace string) *connection {
 	}
 }
 
-func mockSinkedHub(initialConnections int) (h *hub) {
+func mockSinkedHub(initialConnections map[string]int) (h *hub) {
 	h = newHub()
 	h.Start()
-	for i := 0; i < initialConnections; i++ {
-		h.register <- mockSinkedConn("/test")
+	for namespace, num := range initialConnections {
+		for i := 0; i < num; i++ {
+			h.register <- mockSinkedConn(namespace)
+		}
 	}
 	return h
 }
@@ -137,20 +140,51 @@ func TestBroadcastWildcards(t *testing.T) {
 	}
 }
 
-func benchmarkBroadcast(conns int, b *testing.B) {
-	b.StopTimer()
-	h := mockSinkedHub(conns)
-	b.StartTimer()
-	for n := 0; n < b.N; n++ {
-		h.broadcast <- SSEMessage{"", []byte("foo bar woo"), "/test"}
-		h.broadcast <- SSEMessage{"event-foo", []byte("foo bar woo"), "/test"}
+func BenchmarkBroadcast(b *testing.B) {
+	var msgBytes = []byte("foo bar woo")
+	var sizes = []int{1, 10, 100, 500, 1000, 10000}
+
+	for _, s := range sizes {
+		b.Run(strconv.Itoa(s), func(b *testing.B) {
+			h := mockSinkedHub(map[string]int{"/test": s})
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				h.broadcast <- SSEMessage{"", msgBytes, "/test"}
+			}
+			b.StopTimer()
+			h.Shutdown()
+		})
 	}
-	b.StopTimer()
-	h.Shutdown()
 }
 
-func BenchmarkBroadcast1(b *testing.B)    { benchmarkBroadcast(1, b) }
-func BenchmarkBroadcast10(b *testing.B)   { benchmarkBroadcast(10, b) }
-func BenchmarkBroadcast100(b *testing.B)  { benchmarkBroadcast(100, b) }
-func BenchmarkBroadcast500(b *testing.B)  { benchmarkBroadcast(500, b) }
-func BenchmarkBroadcast1000(b *testing.B) { benchmarkBroadcast(1000, b) }
+// benchmark for namespaced benchmarked
+func BenchmarkNamespacedBroadcast(b *testing.B) {
+	var msgBytes = []byte("foo bar woo")
+	var sizes = []int{100, 1000, 10000}
+
+	mockDensityHub := func(s int) *hub {
+		return mockSinkedHub(map[string]int{
+			"/dense":  int(float64(s) * 0.95),
+			"/sparse": int(float64(s) * 0.05),
+		})
+	}
+
+	var benchAllSizes = func(namespace string) {
+		b.Run(namespace, func(b *testing.B) {
+			for _, s := range sizes {
+				slashName := "/" + namespace
+				b.Run(strconv.Itoa(s), func(b *testing.B) {
+					hub := mockDensityHub(s)
+					b.ResetTimer()
+					for n := 0; n < b.N; n++ {
+						hub.broadcast <- SSEMessage{"", msgBytes, slashName}
+					}
+					b.StopTimer()
+					hub.Shutdown()
+				})
+			}
+		})
+	}
+	benchAllSizes("dense")
+	benchAllSizes("sparse")
+}
