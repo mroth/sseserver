@@ -43,6 +43,7 @@ func (c *connection) Status() connectionStatus {
 func (c *connection) writer() {
 	cn := c.w.(http.CloseNotifier)
 	closer := cn.CloseNotify()
+
 L:
 	for {
 		select {
@@ -70,7 +71,13 @@ L:
 	}
 }
 
-func sseHandler(w http.ResponseWriter, r *http.Request, h *hub) {
+// A connectionHandler is a http.Handler that registers all incoming connections
+// to a message queue Hub.
+type connectionHandler struct {
+	hub *hub
+}
+
+func (ch connectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Path[10:] // strip out the prepending "/subscribe"
 	// TODO: we should do the above in a clever way so we work on any path
 
@@ -87,11 +94,11 @@ func sseHandler(w http.ResponseWriter, r *http.Request, h *hub) {
 	log.Println("CONNECT\t", namespace, "\t", r.RemoteAddr)
 
 	headers := w.Header()
-	headers.Set("Access-Control-Allow-Origin", "*")
+	headers.Set("Access-Control-Allow-Origin", "*") // TODO: make optional
 	headers.Set("Content-Type", "text/event-stream; charset=utf-8")
 	headers.Set("Cache-Control", "no-cache")
 	headers.Set("Connection", "keep-alive")
-	headers.Set("Server", "emojitrack-gostreamer")
+	headers.Set("Server", "emojitrack-gostreamer") // TODO: make optional
 
 	c := &connection{
 		send:      make(chan []byte, 256),
@@ -100,12 +107,16 @@ func sseHandler(w http.ResponseWriter, r *http.Request, h *hub) {
 		created:   time.Now(),
 		namespace: namespace,
 	}
-	h.register <- c
+	ch.hub.register <- c
 
 	defer func() {
 		log.Println("DISCONNECT\t", namespace, "\t", r.RemoteAddr)
-		h.unregister <- c
+		ch.hub.unregister <- c
 	}()
 
 	c.writer()
+}
+
+func newConnectionHandler(h *hub) http.Handler {
+	return connectionHandler{hub: h}
 }

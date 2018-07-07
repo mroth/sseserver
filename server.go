@@ -44,11 +44,7 @@ func NewServer() *Server {
 func (s *Server) Serve(addr string) {
 
 	// set up routes.
-	// use an anonymous function for closure in order to pass value to handler
-	// https://groups.google.com/forum/#!topic/golang-nuts/SGn1gd290zI
-	http.HandleFunc("/subscribe/", func(w http.ResponseWriter, r *http.Request) {
-		sseHandler(w, r, s.hub)
-	})
+	http.Handle("/subscribe/", newConnectionHandler(s.hub))
 
 	http.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
 		// kinda ridiculous workaround for serving a single static file, sigh.
