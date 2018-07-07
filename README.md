@@ -15,13 +15,13 @@ Designed for high throughput as primary performance consideration. In my
 preliminary benchmarking this can handle ~100K/sec messages broadcast across
 ~1000 open HTTP connections on a 3.4GHz Intel Core i7 (using a single  core,
 e.g. with `GOMAXPROCS=1`).  There still remains quite a bit of optimization to
-be done so it should get faster if needed.
+be done so it should be able to get faster if needed.
 
-This currently powers the streaming service for
-[Emojitracker](http://emojitracker.com) in production, where it has routinely
-handled dispatching hundreds of messages per second to thousands of clients
-simultaneously, on a single Heroku dyno. (The previous NodeJS solution required
-dozens of dynos to handle the same load.)
+This library has powered the streaming API endpoint for
+:dizzy:[Emojitracker](http://emojitracker.com) in production since 2014, where
+it routinely handles dispatching hundreds of messages per second to thousands of
+simultaneous clients, on a single Heroku dyno. (The previous NodeJS solution
+required dozens of dynos to handle equivalent load.)
 
 
 Why SSE vs Websockets?
