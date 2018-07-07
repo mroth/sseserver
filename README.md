@@ -1,7 +1,10 @@
 package sseserver
 =================
 
-An encapsulated high-performance Server-Sent Events endpoint server for Go with 
+[![Build Status](https://travis-ci.org/mroth/sseserver.svg?branch=master)](https://travis-ci.org/mroth/sseserver)
+[![GoDoc](https://godoc.org/github.com/mroth/sseserver?status.svg)](https://godoc.org/github.com/mroth/sseserver)
+
+An encapsulated high-performance Server-Sent Events endpoint server for Go with
 advanced namespacing support.
 
 Abstracts multiple namespaced HTTP endpoints so that clients can subscribe to
@@ -119,7 +122,7 @@ Which when connecting to the server would yield results:
     TICK! The time is currently: 6:07:22 pm (EDT)
     TICK! The time is currently: 6:07:23 pm (EDT)
     MEOW! Hello LOLcat
-    TICK! The time is currently: 6:07:24 pm (EDT)  
+    TICK! The time is currently: 6:07:24 pm (EDT)
 
 
 Of course you could easily send JSON objects in the data payload instead, and
