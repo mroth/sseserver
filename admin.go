@@ -60,21 +60,18 @@ func platform() string {
 }
 
 func dyno() string {
-	dyno := os.Getenv("DYNO")
-	if dyno != "" {
+	if dyno := os.Getenv("DYNO"); dyno != "" {
 		return dyno
-	} else {
-		return "dev.1"
 	}
+	return "dev.1"
 }
 
 func env() string {
-	env := os.Getenv("GO_ENV")
-	if env != "" {
+	if env := os.Getenv("GO_ENV"); env != "" {
 		return env
-	} else {
-		return "development"
 	}
+	return "development"
+
 }
 
 func adminStatusDataHandler(w http.ResponseWriter, r *http.Request, h *hub) {

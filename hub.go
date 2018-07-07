@@ -1,9 +1,10 @@
 package sseserver
 
 import (
-	. "github.com/azer/debug"
 	"strings"
 	"time"
+
+	"github.com/azer/debug"
 )
 
 // A connection hub keeps track of all the active client connections, and
@@ -32,10 +33,10 @@ func (h *hub) run() {
 	for {
 		select {
 		case c := <-h.register:
-			Debug("new connection being registered for " + c.namespace)
+			debug.Debug("new connection being registered for " + c.namespace)
 			h.connections[c] = true
 		case c := <-h.unregister:
-			Debug("connection told us to unregister for " + c.namespace)
+			debug.Debug("connection told us to unregister for " + c.namespace)
 			delete(h.connections, c)
 			close(c.send)
 		case msg := <-h.broadcast:
@@ -46,10 +47,9 @@ func (h *hub) run() {
 					select {
 					case c.send <- formattedMsg:
 					default:
-						Debug("cant pass to a connection send chan, buffer is full -- kill it with fire")
+						debug.Debug("cant pass to a connection send chan, buffer is full -- kill it with fire")
 						delete(h.connections, c)
 						close(c.send)
-						// go c.ws.Close()
 						/* TODO: figure out what to do here...
 						we are already closing the send channel, in *theory* shouldn't the
 						connection clean up? I guess possible it doesnt if its deadlocked or

@@ -1,13 +1,14 @@
 package sseserver
 
 import (
-	"github.com/GeertJohan/go.rice"
-	. "github.com/azer/debug"
 	"log"
 	"net/http"
+
+	"github.com/GeertJohan/go.rice"
+	"github.com/azer/debug"
 )
 
-// Interface to a SSE server.
+// Server is the interface to a SSE server.
 //
 // Exposes a send-only chan `broadcast`, any SSEMessage sent to this channel
 // will be broadcast out to any connected clients subscribed to a namespace
@@ -17,7 +18,7 @@ type Server struct {
 	hub       *hub
 }
 
-// Creates a new Server and returns a reference to it.
+// NewServer creates a new Server and returns a reference to it.
 func NewServer() *Server {
 
 	// set up the public interface
@@ -37,7 +38,7 @@ func NewServer() *Server {
 	return &s
 }
 
-// Begin serving connections on specified address.
+// Serve begins serving connections on specified address.
 //
 // This method blocks forever, as it is basically a setup wrapper around
 // http.ListenAndServe()
@@ -76,7 +77,7 @@ func (s *Server) Serve(addr string) {
 	})
 
 	// actually start the HTTP server
-	Debug("Starting server on addr " + addr)
+	debug.Debug("Starting server on addr " + addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}

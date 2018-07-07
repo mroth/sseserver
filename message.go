@@ -19,7 +19,6 @@ type SSEMessage struct {
 func (msg SSEMessage) sseFormat() []byte {
 	if msg.Event != "" {
 		return []byte(fmt.Sprintf("event:%s\ndata:%s\n\n", msg.Event, msg.Data))
-	} else {
-		return []byte(fmt.Sprintf("data:%s\n\n", msg.Data))
 	}
+	return []byte(fmt.Sprintf("data:%s\n\n", msg.Data))
 }

@@ -1,10 +1,11 @@
 package sseserver
 
 import (
-	. "github.com/azer/debug"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/azer/debug"
 )
 
 type connection struct {
@@ -52,7 +53,7 @@ func (c *connection) writer() {
 				c.msgsSent++
 			}
 		case <-closer:
-			Debug("closer fired for conn")
+			debug.Debug("closer fired for conn")
 			return
 		}
 	}
