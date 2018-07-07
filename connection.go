@@ -41,9 +41,6 @@ func (c *connection) Status() connectionStatus {
 // http connection.  it will detect if the http connection is closed and autoexit.
 // it will also exit if the connection's send channel is closed (indicating a shutdown)
 func (c *connection) writer() {
-	cn := c.w.(http.CloseNotifier)
-	closer := cn.CloseNotify()
-
 L:
 	for {
 		select {
@@ -64,7 +61,7 @@ L:
 				f.Flush()
 				c.msgsSent++
 			}
-		case <-closer:
+		case <-c.r.Context().Done():
 			debug.Debug("closer fired for conn")
 			return
 		}
