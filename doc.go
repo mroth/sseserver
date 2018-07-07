@@ -1,5 +1,5 @@
 /*
-Package ssserver implements a reference Server-Sent Events server, suitable
+Package sseserver implements a reference Server-Sent Events server, suitable
 for streaming unidirectional messages over HTTP to web browsers.
 
 This implementation also adds easy namespacing so that clients can subscribe to
