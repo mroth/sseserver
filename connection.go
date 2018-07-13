@@ -41,26 +41,42 @@ func (c *connection) Status() connectionStatus {
 // http connection.  it will detect if the http connection is closed and autoexit.
 // it will also exit if the connection's send channel is closed (indicating a shutdown)
 func (c *connection) writer() {
-L:
+	// set up a keepalive tickle to prevent connections from being closed by a timeout
+	// any SSE line beginning with the colon will be ignored, so use that.
+	// https://www.w3.org/TR/eventsource/#event-stream-interpretation
+	keepaliveTickler := time.NewTicker(15 * time.Second)
+	keepaliveMsg := []byte(":keepalive\n")
+	defer keepaliveTickler.Stop()
+
 	for {
 		select {
 		case msg, ok := <-c.send:
-			if !ok {
-				// chan was closed e.g. our hub told us we have nothing left to do
-				break L
+			if !ok { // chan was closed
+				// ...our hub told us we have nothing left to do
+				debug.Debug("hub told us to shut down")
+				return
 			}
-			// write message out to client
+			// otherwise write message out to client
 			_, err := c.w.Write(msg)
 			if err != nil {
-				// we had an error writing to client
-				// TODO: we should probably close out
-				// currently we just wait to next message...
-				break
+				debug.Debug("Error writing msg to client, closing")
+				return
 			}
 			if f, ok := c.w.(http.Flusher); ok {
 				f.Flush()
 				c.msgsSent++
 			}
+
+		case <-keepaliveTickler.C:
+			_, err := c.w.Write(keepaliveMsg)
+			if err != nil {
+				debug.Debug("Error writing keepalive to client, closing")
+				return
+			}
+			if f, ok := c.w.(http.Flusher); ok {
+				f.Flush()
+			}
+
 		case <-c.r.Context().Done():
 			debug.Debug("closer fired for conn")
 			return

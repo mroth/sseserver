@@ -158,6 +158,13 @@ A client can subscribe to a parent namespace. E.g. a subscription
 to `/pets` will receive messages broadcast to both `/pets/dogs` and
 `/pets/cats`.
 
+Keep-Alives
+-----------
+All connections will send periodic `:keepalive` messages as recommended in the
+WHATWG spec (by default, every 15 seconds). Any library adhering to the
+EventSource standard should already automatically ignore and filter out these
+messages for you.
+
 Acknowledgements
 ----------------
 A lot of the initial ideas for handling the connection hub in idiomatic Go originally
