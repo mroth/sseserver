@@ -1,9 +1,5 @@
 package sseserver
 
-import (
-	"fmt"
-)
-
 // SSEMessage is a message suitable for sending over a Server-Sent Event stream.
 //
 // Note: Namespace is not part of the SSE spec, it is merely used internally to
@@ -17,8 +13,17 @@ type SSEMessage struct {
 
 // sseFormat is the formatted bytestring for a SSE message, ready to be sent.
 func (msg SSEMessage) sseFormat() []byte {
+	// var b []byte but add initial capacity of length of keys, fields, and linebreaks.
+	// will be +1 byte wasted capacity if in nonevented case, does that really matter?
+	// cost of the comparison branch before allocation may outweight the 1 byte saving.
+	b := make([]byte, 0, 6+5+len(msg.Event)+len(msg.Data)+3)
 	if msg.Event != "" {
-		return []byte(fmt.Sprintf("event:%s\ndata:%s\n\n", msg.Event, msg.Data))
+		b = append(b, "event:"...)
+		b = append(b, msg.Event...)
+		b = append(b, '\n')
 	}
-	return []byte(fmt.Sprintf("data:%s\n\n", msg.Data))
+	b = append(b, "data:"...)
+	b = append(b, msg.Data...)
+	b = append(b, '\n', '\n')
+	return b
 }
