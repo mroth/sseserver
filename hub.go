@@ -8,9 +8,12 @@ import (
 	"github.com/azer/debug"
 )
 
-// A connection hub keeps track of all the active client connections, and
-// handles broadcasting messages out to those connections that match the
-// appropriate namespace.
+// A hub keeps track of all the active client connections, and handles
+// broadcasting messages out to those connections that match the appropriate
+// namespace.
+//
+// The hub is effectively the "heart" of a Server, but is kept private to hide
+// implementation detais.
 type hub struct {
 	broadcast   chan SSEMessage      // Inbound messages to propogate out.
 	connections map[*connection]bool // Registered connections.
@@ -47,11 +50,6 @@ func (h *hub) Start() {
 	go h.run()
 }
 
-func (h *hub) _unregister(c *connection) {
-	delete(h.connections, c)
-	close(c.send)
-}
-
 func (h *hub) run() {
 	for {
 		select {
@@ -70,30 +68,42 @@ func (h *hub) run() {
 			h._unregister(c)
 		case msg := <-h.broadcast:
 			h.sentMsgs++
-			formattedMsg := msg.sseFormat()
-			for c := range h.connections {
-				if strings.HasPrefix(msg.Namespace, c.namespace) {
-					select {
-					case c.send <- formattedMsg:
-					default:
-						debug.Debug("cant pass to a connection send chan, buffer is full -- kill it with fire")
-						delete(h.connections, c)
-						close(c.send)
-						/*
-							we are already closing the send channel, in *theory* shouldn't the
-							connection clean up? I guess possible it doesnt if its deadlocked or
-							something... is it?
+			h._broadcastMessage(msg)
+		}
+	}
+}
 
-							closing the send channel will result in our handleFunc exiting, which Go
-							treats as meaning we are done with the connection... but what if it's wedged?
+// internal method, removes that client from the hub and tells it to shutdown
+func (h *hub) _unregister(c *connection) {
+	delete(h.connections, c)
+	close(c.send)
+}
 
-							TODO: investigate using panic in a http.Handler, to absolutely force
+// internal method, broadcast a message to all matching clients if this fails
+// due to any client having a full send buffer,
+func (h *hub) _broadcastMessage(msg SSEMessage) {
+	formattedMsg := msg.sseFormat()
+	for c := range h.connections {
+		if strings.HasPrefix(msg.Namespace, c.namespace) {
+			select {
+			case c.send <- formattedMsg:
+			default:
+				debug.Debug("cant pass to a connection send chan, buffer is full -- kill it with fire")
+				delete(h.connections, c)
+				close(c.send)
+				/*
+					we are already closing the send channel, in *theory* shouldn't the
+					connection clean up? I guess possible it doesnt if its deadlocked or
+					something... is it?
 
-							we want to make sure to always close the HTTP connection though,
-							so server can never fill up max num of open sockets.
-						*/
-					}
-				}
+					closing the send channel will result in our handleFunc exiting, which Go
+					treats as meaning we are done with the connection... but what if it's wedged?
+
+					TODO: investigate using panic in a http.Handler, to absolutely force
+
+					we want to make sure to always close the HTTP connection though,
+					so server can never fill up max num of open sockets.
+				*/
 			}
 		}
 	}
