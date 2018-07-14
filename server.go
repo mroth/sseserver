@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/GeertJohan/go.rice"
 	"github.com/azer/debug"
 )
 
@@ -45,31 +44,12 @@ func (s *Server) Serve(addr string) {
 
 	// set up routes.
 	http.Handle("/subscribe/", newConnectionHandler(s.hub))
-
-	http.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
-		// kinda ridiculous workaround for serving a single static file, sigh.
-		// works for now without changing paths tho...
-		box, err := rice.FindBox("views")
-		if err != nil {
-			log.Fatalf("error opening rice.Box: %s\n", err)
-		}
-
-		file, err := box.Open("admin.html")
-		if err != nil {
-			log.Fatalf("could not open file: %s\n", err)
-		}
-
-		fstat, err := file.Stat()
-		if err != nil {
-			log.Fatalf("could not stat file: %s\n", err)
-		}
-
-		http.ServeContent(w, r, fstat.Name(), fstat.ModTime(), file)
-	})
-
-	http.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {
-		adminStatusDataHandler(w, r, s.hub)
-	})
+	if true { // TODO: make optional
+		http.HandleFunc("/admin", adminStatusHTMLHandler)
+		http.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {
+			adminStatusDataHandler(w, r, s)
+		})
+	}
 
 	// actually start the HTTP server
 	debug.Debug("Starting server on addr " + addr)
