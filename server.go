@@ -9,7 +9,7 @@ import (
 
 // Server is the interface to a SSE server.
 //
-// Exposes a send-only chan `broadcast`, any SSEMessage sent to this channel
+// Exposes a send-only chan `Broadcast`, any SSEMessage sent to this channel
 // will be broadcast out to any connected clients subscribed to a namespace
 // that matches the message.
 type Server struct {
@@ -36,7 +36,7 @@ func NewServer() *Server {
 	s.hub = newHub()
 	s.hub.Start()
 
-	// expose just the broadcast chanel to public
+	// re-export just the hub's broadcast chan to public
 	// will be typecast to send-only
 	s.Broadcast = s.hub.broadcast
 
