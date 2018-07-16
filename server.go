@@ -7,11 +7,14 @@ import (
 	"github.com/azer/debug"
 )
 
-// Server is the interface to a SSE server.
+// Server is the primary interface to a SSE server.
 //
-// Exposes a send-only chan `Broadcast`, any SSEMessage sent to this channel
+// Exposes a receive-only chan `Broadcast`: any SSEMessage sent to this channel
 // will be broadcast out to any connected clients subscribed to a namespace
 // that matches the message.
+//
+// Server implements the http.Handler interface, and can be chained into
+// existing HTTP routing muxes if desired.
 type Server struct {
 	Broadcast chan<- SSEMessage
 	Options   ServerOptions
@@ -27,41 +30,45 @@ type ServerOptions struct {
 
 // NewServer creates a new Server and returns a reference to it.
 func NewServer() *Server {
-
-	// set up the public interface
-	var s = Server{}
+	s := Server{
+		hub: newHub(),
+	}
 
 	// start up our actual internal connection hub
 	// which we keep in the server struct as private
-	s.hub = newHub()
 	s.hub.Start()
 
-	// re-export just the hub's broadcast chan to public
-	// will be typecast to send-only
+	// then re-export just the hub's broadcast chan to public
+	// (will be typecast to receive-only)
 	s.Broadcast = s.hub.broadcast
 
-	// return handle
 	return &s
 }
 
-// Serve begins serving connections on specified address.
-//
-// This method blocks forever, as it is basically a setup wrapper around
-// http.ListenAndServe()
-func (s *Server) Serve(addr string) {
+// ServeHTTP implements the http.Handler interface
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.Handle(
+		"/subscribe/",
+		http.StripPrefix("/subscribe", newConnectionHandler(s.hub)),
+	)
 
-	// set up routes.
-	http.Handle("/subscribe/", newConnectionHandler(s.hub))
 	if !s.Options.DisableAdminEndpoints {
-		http.HandleFunc("/admin", adminStatusHTMLHandler)
-		http.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/admin", adminStatusHTMLHandler)
+		mux.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {
 			adminStatusDataHandler(w, r, s)
 		})
 	}
+	mux.ServeHTTP(w, r)
+}
 
-	// actually start the HTTP server
+// Serve is a convenience method to begin serving connections on specified address.
+//
+// This method blocks forever, as it is basically a convenience wrapper around
+// http.ListenAndServe(addr, self).
+func (s *Server) Serve(addr string) {
 	debug.Debug("Starting server on addr " + addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := http.ListenAndServe(addr, s); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }

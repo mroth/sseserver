@@ -91,10 +91,6 @@ type connectionHandler struct {
 }
 
 func (ch connectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// strip out the prepending "/subscribe"
-	// TODO: we should do the above in a clever way so we work on any path
-	namespace := r.URL.Path[10:]
-
 	// override RemoteAddr to trust proxy IP msgs if they exist
 	// pattern taken from http://git.io/xDD3Mw
 	ip := r.Header.Get("X-Real-IP")
@@ -105,6 +101,7 @@ func (ch connectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.RemoteAddr = ip
 	}
 
+	namespace := r.URL.Path
 	log.Println("CONNECT\t", namespace, "\t", r.RemoteAddr)
 
 	headers := w.Header()

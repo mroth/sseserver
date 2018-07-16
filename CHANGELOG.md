@@ -4,6 +4,8 @@ All notable changes to this project should be documented in this file.
 
 ## [Unreleased]
 
+- `sseserver.Server` now explicitly implements `http.Handler`, allowing it to more
+  easily integrated into existing HTTP applications if desired.
 - internal cleanup: modularize internals, may lead to exposing more in future release
 - reduction of memory allocations in core message formatting loop
 - implement keepalive pings
