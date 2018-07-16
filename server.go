@@ -52,13 +52,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"/subscribe/",
 		http.StripPrefix("/subscribe", newConnectionHandler(s.hub)),
 	)
-
-	if !s.Options.DisableAdminEndpoints {
-		mux.HandleFunc("/admin", adminStatusHTMLHandler)
-		mux.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {
-			adminStatusDataHandler(w, r, s)
-		})
-	}
+	mux.Handle(
+		"/admin/",
+		adminHandler(s),
+	)
 	mux.ServeHTTP(w, r)
 }
 
