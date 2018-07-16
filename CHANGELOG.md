@@ -1,12 +1,13 @@
 # Changelog
-All notable changes to this project will be documented in this file.
+
+All notable changes to this project should be documented in this file.
 
 ## [Unreleased]
 
-- internal cleanup
-- modularize internals, may lead to exposing more in future release
+- internal cleanup: modularize internals, may lead to exposing more in future release
 - reduction of memory allocations in core message formatting loop
 - implement keepalive pings
+- allow admin endpoint to be disabled in settings
 
 ## 1.0.0 - 2014-07-29
 

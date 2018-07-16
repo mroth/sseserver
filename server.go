@@ -14,7 +14,15 @@ import (
 // that matches the message.
 type Server struct {
 	Broadcast chan<- SSEMessage
+	Options   ServerOptions
 	hub       *hub
+}
+
+// ServerOptions defines a set of high-level user options that can be customized
+// for a Server.
+type ServerOptions struct {
+	DisableAdminEndpoints bool // disables the "/admin" status endpoints
+	// DisallowRootSubscribe bool // TODO: possibly consider this option?
 }
 
 // NewServer creates a new Server and returns a reference to it.
@@ -44,7 +52,7 @@ func (s *Server) Serve(addr string) {
 
 	// set up routes.
 	http.Handle("/subscribe/", newConnectionHandler(s.hub))
-	if true { // TODO: make optional
+	if !s.Options.DisableAdminEndpoints {
 		http.HandleFunc("/admin", adminStatusHTMLHandler)
 		http.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {
 			adminStatusDataHandler(w, r, s)
