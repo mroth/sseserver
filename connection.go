@@ -17,6 +17,16 @@ type connection struct {
 	msgsSent  uint64              // Msgs the connection has sent (all time)
 }
 
+func newConnection(w http.ResponseWriter, r *http.Request, namespace string) *connection {
+	return &connection{
+		send:      make(chan []byte, 256),
+		w:         w,
+		r:         r,
+		created:   time.Now(),
+		namespace: namespace,
+	}
+}
+
 type connectionStatus struct {
 	Path      string `json:"request_path"`
 	Namespace string `json:"namespace"`
@@ -111,15 +121,8 @@ func (ch connectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	headers.Set("Connection", "keep-alive")
 	headers.Set("Server", "mroth/sseserver")
 
-	c := &connection{
-		send:      make(chan []byte, 256),
-		w:         w,
-		r:         r,
-		created:   time.Now(),
-		namespace: namespace,
-	}
+	c := newConnection(w, r, namespace)
 	ch.hub.register <- c
-
 	defer func() {
 		log.Println("DISCONNECT\t", namespace, "\t", r.RemoteAddr)
 		ch.hub.unregister <- c
