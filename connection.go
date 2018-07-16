@@ -112,7 +112,7 @@ func (ch connectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	headers.Set("Content-Type", "text/event-stream; charset=utf-8")
 	headers.Set("Cache-Control", "no-cache")
 	headers.Set("Connection", "keep-alive")
-	headers.Set("Server", "emojitrack-gostreamer") // TODO: make optional
+	headers.Set("Server", "mroth/sseserver")
 
 	c := &connection{
 		send:      make(chan []byte, 256),
