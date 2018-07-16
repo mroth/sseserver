@@ -50,7 +50,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
 	mux.Handle(
 		"/subscribe/",
-		http.StripPrefix("/subscribe", newConnectionHandler(s.hub)),
+		http.StripPrefix("/subscribe", connectionHandler(s.hub)),
 	)
 	mux.Handle(
 		"/admin/",

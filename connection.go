@@ -94,43 +94,38 @@ func (c *connection) writer() {
 	}
 }
 
-// A connectionHandler is a http.Handler that registers all incoming connections
-// to a message queue Hub.
-type connectionHandler struct {
-	hub *hub
-}
+func connectionHandler(h *hub) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// override RemoteAddr to trust proxy IP msgs if they exist
+		// pattern taken from http://git.io/xDD3Mw
+		// TODO: move me into middleware function?
+		ip := r.Header.Get("X-Real-IP")
+		if ip == "" {
+			ip = r.Header.Get("X-Forwarded-For")
+		}
+		if ip != "" {
+			r.RemoteAddr = ip
+		}
 
-func (ch connectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// override RemoteAddr to trust proxy IP msgs if they exist
-	// pattern taken from http://git.io/xDD3Mw
-	ip := r.Header.Get("X-Real-IP")
-	if ip == "" {
-		ip = r.Header.Get("X-Forwarded-For")
-	}
-	if ip != "" {
-		r.RemoteAddr = ip
-	}
+		// write headers
+		headers := w.Header()
+		headers.Set("Access-Control-Allow-Origin", "*") // TODO: make optional
+		headers.Set("Content-Type", "text/event-stream; charset=utf-8")
+		headers.Set("Cache-Control", "no-cache")
+		headers.Set("Connection", "keep-alive")
+		headers.Set("Server", "mroth/sseserver")
 
-	namespace := r.URL.Path
-	log.Println("CONNECT\t", namespace, "\t", r.RemoteAddr)
+		// get namespace from URL path, init connection & register with hub
+		namespace := r.URL.Path
+		log.Println("CONNECT\t", namespace, "\t", r.RemoteAddr)
+		c := newConnection(w, r, namespace)
+		h.register <- c
+		defer func() {
+			log.Println("DISCONNECT\t", namespace, "\t", r.RemoteAddr)
+			h.unregister <- c
+		}()
 
-	headers := w.Header()
-	headers.Set("Access-Control-Allow-Origin", "*") // TODO: make optional
-	headers.Set("Content-Type", "text/event-stream; charset=utf-8")
-	headers.Set("Cache-Control", "no-cache")
-	headers.Set("Connection", "keep-alive")
-	headers.Set("Server", "mroth/sseserver")
-
-	c := newConnection(w, r, namespace)
-	ch.hub.register <- c
-	defer func() {
-		log.Println("DISCONNECT\t", namespace, "\t", r.RemoteAddr)
-		ch.hub.unregister <- c
-	}()
-
-	c.writer()
-}
-
-func newConnectionHandler(h *hub) http.Handler {
-	return connectionHandler{hub: h}
+		// start the connection's main broadcasting event loop
+		c.writer()
+	})
 }
