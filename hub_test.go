@@ -155,6 +155,38 @@ func TestDoubleUnregister(t *testing.T) {
 	h.Shutdown()
 }
 
+// a connection that is not reading should eventually be killed
+func TestKillsStalledConnection(t *testing.T) {
+	namespace := "/tacos"
+	h := mockHub(0)
+	stalled := mockConn(namespace)         // slow connection - taco overflow
+	sinked := mockSinkedConn(namespace, h) // hungry connection - loves tacos
+	h.register <- stalled
+	h.register <- sinked
+	h.broadcast <- SSEMessage{Data: []byte("no-op to ensure register finished")}
+	// ^^ the above broadcast forces the hub run loop to be past the initial
+	// registrations, preventing a possible race condition.
+	numSetupConns := len(h.connections)
+	if numSetupConns != 2 {
+		t.Fatal("unexpected number of conns after test setup:", numSetupConns)
+	}
+
+	// send 300 messages, ensuring the 256 buffer overflows
+	msg := SSEMessage{Data: []byte("hi"), Namespace: namespace}
+	for i := 0; i <= 300; i++ {
+		h.broadcast <- msg
+	}
+
+	// one of the connections should have been shutdown now...
+	if numActiveConns := len(h.connections); numActiveConns != 1 {
+		t.Error("unexpected number of conns after test run:", numActiveConns)
+	}
+	// ...and it better not be our taco loving friend
+	if _, ok := h.connections[sinked]; !ok {
+		t.Error("wrong connection appears to have been shutdown!")
+	}
+}
+
 func BenchmarkBroadcast(b *testing.B) {
 	var msgBytes = []byte("foo bar woo")
 	var sizes = []int{1, 10, 100, 500, 1000, 10000}
