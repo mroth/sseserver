@@ -1,0 +1,34 @@
+<html>
+  <body>
+    <h1>Latest pets:</h1>
+    <ul id="petList"></ul>
+
+    <script>
+    // connect to a different event source endpoint and register event handlers
+    es = new EventSource("http://localhost:8222/subscribe/pets")
+
+    // bind the event listeners
+    es.addEventListener("new-dog", displayDog);
+    es.addEventListener("new-cat", displayCat);
+
+    // our fancy "application" lolz
+    function displayDog(event) {
+        var breed = event.data;
+        console.log("WOOF! Added a dog of breed " + breed);
+        _appendListItem("🐶 <i>Woof!</i> it is a " + breed);
+    }
+
+    function displayCat(event) {
+        var breed = event.data;
+        console.log("MEOW! Added a cat of breed " + breed);
+        _appendListItem("🐱 <i>Meow....</i> it is a " + breed);
+    }
+
+    function _appendListItem(msg) {
+        var li = document.createElement("li");
+        li.innerHTML = msg;
+        document.getElementById("petList").appendChild(li);
+    }
+    </script>
+  </body>
+</html>
