@@ -28,14 +28,14 @@ func mockSinkedHub(initialConnections map[string]int) (h *hub) {
 	h.Start()
 	for namespace, num := range initialConnections {
 		for i := 0; i < num; i++ {
-			h.register <- mockSinkedConn(namespace)
+			h.register <- mockSinkedConn(namespace, h)
 		}
 	}
 	return h
 }
 
 // mock a connection that sinks data sent to it
-func mockSinkedConn(namespace string) *connection {
+func mockSinkedConn(namespace string, h *hub) *connection {
 	c := &connection{
 		send:      make(chan []byte, 256),
 		created:   time.Now(),
@@ -46,6 +46,8 @@ func mockSinkedConn(namespace string) *connection {
 			// no-op, but will break loop if chan is closed
 			// (versus using <-c.send in infinite loop)
 		}
+		// in practice, a connection tries to unregister itself here
+		h.unregister <- c
 	}()
 	return c
 }
@@ -138,6 +140,19 @@ func TestBroadcastWildcards(t *testing.T) {
 			t.Fatalf("Expected conn to have %d message in queue, actual: %d", c.expected, actual)
 		}
 	}
+}
+
+// if we force unregister a connection from the hub, we tell it exit by closing
+// its send channel when a connection exits for any reason, it tries to
+// unregister itself from the hub thus, this could theoretically lead to a panic
+// if we try to close twice...
+func TestDoubleUnregister(t *testing.T) {
+	h := mockHub(0)
+	c1 := mockSinkedConn("/badseed", h)
+	h.register <- c1
+	h.unregister <- c1
+	h.unregister <- c1
+	h.Shutdown()
 }
 
 func BenchmarkBroadcast(b *testing.B) {

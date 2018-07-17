@@ -56,7 +56,7 @@ func (h *hub) run() {
 		case <-h.shutdown:
 			debug.Debug(fmt.Sprintf("hub shutdown requested, cancelling %d connections...", len(h.connections)))
 			for c := range h.connections {
-				h._unregister(c)
+				h._shutdownConn(c)
 			}
 			debug.Debug("...All connections cancelled, shutting down now.")
 			return
@@ -65,7 +65,7 @@ func (h *hub) run() {
 			h.connections[c] = true
 		case c := <-h.unregister:
 			debug.Debug("connection told us to unregister for " + c.namespace)
-			h._unregister(c)
+			h._unregisterConn(c)
 		case msg := <-h.broadcast:
 			h.sentMsgs++
 			h._broadcastMessage(msg)
@@ -74,8 +74,20 @@ func (h *hub) run() {
 }
 
 // internal method, removes that client from the hub and tells it to shutdown
-func (h *hub) _unregister(c *connection) {
+// _unregister is safe to call multiple times with the same connection
+func (h *hub) _unregisterConn(c *connection) {
 	delete(h.connections, c)
+}
+
+// internal method, removes that client from the hub and tells it to shutdown
+// must only be called once for a given connection to avoid panic!
+func (h *hub) _shutdownConn(c *connection) {
+	// for maximum safety, ALWAYS unregister a connection from the hub prior to
+	// shutting it down, as we want no possibility of a send on closed channel
+	// panic.
+	h._unregisterConn(c)
+	// close the connection's send channel, which will cause it to exit its
+	// event loop and return to the HTTP handler.
 	close(c.send)
 }
 
@@ -89,8 +101,7 @@ func (h *hub) _broadcastMessage(msg SSEMessage) {
 			case c.send <- formattedMsg:
 			default:
 				debug.Debug("cant pass to a connection send chan, buffer is full -- kill it with fire")
-				delete(h.connections, c)
-				close(c.send)
+				h._shutdownConn(c)
 				/*
 					we are already closing the send channel, in *theory* shouldn't the
 					connection clean up? I guess possible it doesnt if its deadlocked or
