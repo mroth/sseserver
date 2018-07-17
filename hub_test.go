@@ -75,7 +75,8 @@ func TestBroadcastSingleplex(t *testing.T) {
 	}
 	for _, c := range d {
 		if actual := len(c.conn.send); actual != c.expected {
-			t.Fatalf("Expected conn to have %d message in queue, actual: %d", c.expected, actual)
+			t.Fatalf("Expected conn to have %d message in queue, actual: %d",
+				c.expected, actual)
 		}
 	}
 
@@ -104,14 +105,14 @@ func TestBroadcastMultiplex(t *testing.T) {
 	}
 	for _, c := range d {
 		if actual := len(c.conn.send); actual != c.expected {
-			t.Fatalf("Expected conn to have %d message in queue, actual: %d", c.expected, actual)
+			t.Errorf("Expected conn to have %d messages in queue, actual: %d",
+				c.expected, actual)
 		}
 	}
 }
 
 func TestBroadcastWildcards(t *testing.T) {
 	h := mockHub(0)
-
 	cDogs := mockConn("/pets/dogs")
 	cCats := mockConn("/pets/cats")
 	cWild := mockConn("/pets")
@@ -137,7 +138,8 @@ func TestBroadcastWildcards(t *testing.T) {
 	}
 	for _, c := range d {
 		if actual := len(c.conn.send); actual != c.expected {
-			t.Fatalf("Expected conn to have %d message in queue, actual: %d", c.expected, actual)
+			t.Errorf("Expected conn to have %d message in queue, actual: %d",
+				c.expected, actual)
 		}
 	}
 }
@@ -165,7 +167,7 @@ func TestDoubleUnregister(t *testing.T) {
 	}
 }
 
-// TODO: test double register is no-op
+// test double register is no-op
 func TestDoubleRegister(t *testing.T) {
 	h := mockHub(0)
 	defer h.Shutdown()
@@ -197,7 +199,7 @@ func TestKillsStalledConnection(t *testing.T) {
 	// registrations, preventing a possible race condition.
 	numSetupConns := len(h.connections)
 	if numSetupConns != 2 {
-		t.Fatal("unexpected number of conns after test setup!:", numSetupConns)
+		t.Fatal("unexpected num of conns after test setup!:", numSetupConns)
 	}
 
 	// send 300 messages, ensuring the 256 buffer overflows
@@ -209,7 +211,7 @@ func TestKillsStalledConnection(t *testing.T) {
 	// one of the connections should have been shutdown now...
 	expected := 1
 	if actual := len(h.connections); actual != expected {
-		t.Errorf("unexpected number of conns: got %v want %v", actual, expected)
+		t.Errorf("unexpected num of conns: got %v want %v", actual, expected)
 	}
 	// ...and it better not be our taco loving friend
 	if _, ok := h.connections[sinked]; !ok {
