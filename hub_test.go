@@ -206,6 +206,9 @@ func TestKillsStalledConnection(t *testing.T) {
 	msg := SSEMessage{Data: []byte("hi"), Namespace: namespace}
 	for i := 0; i <= 300; i++ {
 		h.broadcast <- msg
+		// need to pause execution the tiniest bit to allow
+		// other goroutines to execute if running on GOMAXPROCS=1
+		time.Sleep(time.Nanosecond)
 	}
 
 	// one of the connections should have been shutdown now...
