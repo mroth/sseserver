@@ -148,27 +148,56 @@ func TestBroadcastWildcards(t *testing.T) {
 // if we try to close twice...
 func TestDoubleUnregister(t *testing.T) {
 	h := mockHub(0)
+	defer h.Shutdown()
+
+	c1 := mockSinkedConn("/badseed", h)
+	c2 := mockSinkedConn("/goodseed", h)
+	h.register <- c1
+	h.register <- c2
+	h.unregister <- c1
+	h.unregister <- c1
+	h.broadcast <- SSEMessage{Data: []byte("no-op to ensure finished")}
+	// ^^ the above broadcast forces the hub run loop to be past the initial
+	// registrations, preventing a possible race condition.
+	actual, expected := len(h.connections), 1
+	if actual != expected {
+		t.Errorf("unexpected num of conns: got %v want %v", actual, expected)
+	}
+}
+
+// TODO: test double register is no-op
+func TestDoubleRegister(t *testing.T) {
+	h := mockHub(0)
+	defer h.Shutdown()
+
 	c1 := mockSinkedConn("/badseed", h)
 	h.register <- c1
-	h.unregister <- c1
-	h.unregister <- c1
-	h.Shutdown()
+	h.register <- c1
+	h.broadcast <- SSEMessage{Data: []byte("no-op to ensure finished")}
+	// ^^ the above broadcast forces the hub run loop to be past the initial
+	// registrations, preventing a possible race condition.
+	actual, expected := len(h.connections), 1
+	if actual != expected {
+		t.Errorf("unexpected num of conns: got %v want %v", actual, expected)
+	}
 }
 
 // a connection that is not reading should eventually be killed
 func TestKillsStalledConnection(t *testing.T) {
-	namespace := "/tacos"
 	h := mockHub(0)
+	defer h.Shutdown()
+
+	namespace := "/tacos"
 	stalled := mockConn(namespace)         // slow connection - taco overflow
 	sinked := mockSinkedConn(namespace, h) // hungry connection - loves tacos
 	h.register <- stalled
 	h.register <- sinked
-	h.broadcast <- SSEMessage{Data: []byte("no-op to ensure register finished")}
+	h.broadcast <- SSEMessage{Data: []byte("no-op to ensure finished")}
 	// ^^ the above broadcast forces the hub run loop to be past the initial
 	// registrations, preventing a possible race condition.
 	numSetupConns := len(h.connections)
 	if numSetupConns != 2 {
-		t.Fatal("unexpected number of conns after test setup:", numSetupConns)
+		t.Fatal("unexpected number of conns after test setup!:", numSetupConns)
 	}
 
 	// send 300 messages, ensuring the 256 buffer overflows
@@ -178,8 +207,9 @@ func TestKillsStalledConnection(t *testing.T) {
 	}
 
 	// one of the connections should have been shutdown now...
-	if numActiveConns := len(h.connections); numActiveConns != 1 {
-		t.Error("unexpected number of conns after test run:", numActiveConns)
+	expected := 1
+	if actual := len(h.connections); actual != expected {
+		t.Errorf("unexpected number of conns: got %v want %v", actual, expected)
 	}
 	// ...and it better not be our taco loving friend
 	if _, ok := h.connections[sinked]; !ok {
