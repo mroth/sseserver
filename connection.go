@@ -8,6 +8,8 @@ import (
 	"github.com/azer/debug"
 )
 
+const connBufSize = 256
+
 type connection struct {
 	r         *http.Request       // The HTTP request
 	w         http.ResponseWriter // The HTTP response
@@ -19,7 +21,7 @@ type connection struct {
 
 func newConnection(w http.ResponseWriter, r *http.Request, namespace string) *connection {
 	return &connection{
-		send:      make(chan []byte, 256),
+		send:      make(chan []byte, connBufSize),
 		w:         w,
 		r:         r,
 		created:   time.Now(),
