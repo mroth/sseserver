@@ -1,7 +1,6 @@
 package sseserver
 
 import (
-	"log"
 	"net/http"
 	"time"
 
@@ -108,11 +107,9 @@ func connectionHandler(h *hub) http.Handler {
 
 		// get namespace from URL path, init connection & register with hub
 		namespace := r.URL.Path
-		log.Println("CONNECT\t", namespace, "\t", r.RemoteAddr)
 		c := newConnection(w, r, namespace)
 		h.register <- c
 		defer func() {
-			log.Println("DISCONNECT\t", namespace, "\t", r.RemoteAddr)
 			h.unregister <- c
 		}()
 

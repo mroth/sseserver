@@ -3,8 +3,6 @@ package sseserver
 import (
 	"log"
 	"net/http"
-
-	"github.com/azer/debug"
 )
 
 // Server is the primary interface to a SSE server.
@@ -63,10 +61,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //
 // This method blocks forever, as it is basically a convenience wrapper around
 // http.ListenAndServe(addr, self).
+//
+// It also implements basic request logging to STDOUT.
+//
+// If you want to do something more sophisticated, you should not use this method,
+// but rather just build your own HTTP routing/middleware chain around Server which
+// implements the standard http.Handler interface.
 func (s *Server) Serve(addr string) {
-	debug.Debug("Starting server on addr " + addr)
-
-	handler := ProxyRemoteAddrHandler(s)
+	log.Println("Starting server on addr " + addr)
+	handler := ProxyRemoteAddrHandler(requestLogger(s))
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
@@ -93,5 +96,18 @@ func ProxyRemoteAddrHandler(next http.Handler) http.Handler {
 			r.RemoteAddr = ip
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+// requestLogger is a sample of integrating logging via HTTP middleware.
+//
+// Utilized in our Serve() convenience function. Note that due to the long
+// connection time of SSE requests you likely want to log disconnection
+// separately.
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("CONNECT\t", r.URL.Path, "\t", r.RemoteAddr)
+		next.ServeHTTP(w, r)
+		log.Println("DISCONNECT\t", r.URL.Path, "\t", r.RemoteAddr)
 	})
 }
