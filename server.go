@@ -65,7 +65,33 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // http.ListenAndServe(addr, self).
 func (s *Server) Serve(addr string) {
 	debug.Debug("Starting server on addr " + addr)
-	if err := http.ListenAndServe(addr, s); err != nil {
+
+	handler := ProxyRemoteAddrHandler(s)
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
+}
+
+// ProxyRemoteAddrHandler is HTTP middleware to determine the actual RemoteAddr
+// of a http.Request when your server sits behind a proxy or load balancer.
+//
+// When utilized, the value of RemoteAddr will be overridden based on the
+// X-Real-IP or X-Forwarded-For HTTP header, which can be a comma separated list
+// of IPs.
+//
+// See http://httpd.apache.org/docs/2.2/mod/mod_proxy.html#x-headers for
+// details.
+//
+// Based on http://git.io/xDD3Mw
+func ProxyRemoteAddrHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := r.Header.Get("X-Real-IP")
+		if ip == "" {
+			ip = r.Header.Get("X-Forwarded-For")
+		}
+		if ip != "" {
+			r.RemoteAddr = ip
+		}
+		next.ServeHTTP(w, r)
+	})
 }

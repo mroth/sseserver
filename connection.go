@@ -98,17 +98,6 @@ func (c *connection) writer() {
 
 func connectionHandler(h *hub) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// override RemoteAddr to trust proxy IP msgs if they exist
-		// pattern taken from http://git.io/xDD3Mw
-		// TODO: move me into middleware function?
-		ip := r.Header.Get("X-Real-IP")
-		if ip == "" {
-			ip = r.Header.Get("X-Forwarded-For")
-		}
-		if ip != "" {
-			r.RemoteAddr = ip
-		}
-
 		// write headers
 		headers := w.Header()
 		headers.Set("Access-Control-Allow-Origin", "*") // TODO: make optional
