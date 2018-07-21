@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/mroth/sseserver.svg?branch=master)](https://travis-ci.org/mroth/sseserver)
 [![GoDoc](https://godoc.org/github.com/mroth/sseserver?status.svg)](https://godoc.org/github.com/mroth/sseserver)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mroth/sseserver)](https://goreportcard.com/report/github.com/mroth/sseserver)
 
 > A high performance and thread-safe Server-Sent Events server for Go with
 _hierarchical namespacing_ support.

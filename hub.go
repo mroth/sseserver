@@ -15,7 +15,7 @@ import (
 // The hub is effectively the "heart" of a Server, but is kept private to hide
 // implementation detais.
 type hub struct {
-	broadcast   chan SSEMessage      // Inbound messages to propogate out.
+	broadcast   chan SSEMessage      // Inbound messages to propagate out.
 	connections map[*connection]bool // Registered connections.
 	register    chan *connection     // Register requests from the connections.
 	unregister  chan *connection     // Unregister requests from connections.

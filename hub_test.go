@@ -70,8 +70,8 @@ func TestBroadcastSingleplex(t *testing.T) {
 
 	//check for proper delivery
 	d := []deliveryCase{
-		deliveryCase{c1, 1},
-		deliveryCase{c2, 0},
+		{c1, 1},
+		{c2, 0},
 	}
 	for _, c := range d {
 		if actual := len(c.conn.send); actual != c.expected {
@@ -99,9 +99,9 @@ func TestBroadcastMultiplex(t *testing.T) {
 
 	//check for proper delivery
 	d := []deliveryCase{
-		deliveryCase{c1, 2},
-		deliveryCase{c2, 2},
-		deliveryCase{c3, 0},
+		{c1, 2},
+		{c2, 2},
+		{c3, 0},
 	}
 	for _, c := range d {
 		if actual := len(c.conn.send); actual != c.expected {
@@ -131,10 +131,10 @@ func TestBroadcastWildcards(t *testing.T) {
 
 	//check for proper delivery
 	d := []deliveryCase{
-		deliveryCase{cDogs, 1},
-		deliveryCase{cCats, 1},
-		deliveryCase{cWild, 2},
-		deliveryCase{cOther, 1},
+		{cDogs, 1},
+		{cCats, 1},
+		{cWild, 2},
+		{cOther, 1},
 	}
 	for _, c := range d {
 		if actual := len(c.conn.send); actual != c.expected {
