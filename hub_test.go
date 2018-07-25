@@ -222,6 +222,32 @@ func TestKillsStalledConnection(t *testing.T) {
 	}
 }
 
+func BenchmarkRegister(b *testing.B) {
+	h := mockHub(0)
+	defer h.Shutdown()
+	c := mockConn("/pets/cats")
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		h.register <- c
+	}
+	b.StopTimer()
+}
+
+func BenchmarkUnregister(b *testing.B) {
+	h := mockHub(1000)
+	defer h.Shutdown()
+	c := mockConn("/pets/cats")
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		h.register <- c
+		b.StartTimer()
+		h.unregister <- c
+		b.StopTimer()
+	}
+}
+
 func BenchmarkBroadcast(b *testing.B) {
 	var msgBytes = []byte("foo bar woo")
 	var sizes = []int{1, 10, 100, 500, 1000, 10000}
