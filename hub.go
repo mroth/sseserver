@@ -2,10 +2,10 @@ package sseserver
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/azer/debug"
+	"github.com/mroth/sseserver/router"
 )
 
 // A hub keeps track of all the active client connections, and handles
@@ -17,6 +17,7 @@ import (
 type hub struct {
 	broadcast   chan SSEMessage      // Inbound messages to propagate out.
 	connections map[*connection]bool // Registered connections.
+	router      router.Node          // Possibly more efficient lookups!
 	register    chan *connection     // Register requests from the connections.
 	unregister  chan *connection     // Unregister requests from connections.
 	shutdown    chan bool            // Internal chan to handle shutdown notification
@@ -28,6 +29,7 @@ func newHub() *hub {
 	return &hub{
 		broadcast:   make(chan SSEMessage),
 		connections: make(map[*connection]bool),
+		router:      router.New(),
 		register:    make(chan *connection),
 		unregister:  make(chan *connection),
 		shutdown:    make(chan bool),
@@ -61,10 +63,8 @@ func (h *hub) run() {
 			debug.Debug("...All connections cancelled, shutting down now.")
 			return
 		case c := <-h.register:
-			debug.Debug("new connection being registered for " + c.namespace)
-			h.connections[c] = true
+			h._registerConn(c)
 		case c := <-h.unregister:
-			debug.Debug("connection told us to unregister for " + c.namespace)
 			h._unregisterConn(c)
 		case msg := <-h.broadcast:
 			h.sentMsgs++
@@ -73,10 +73,23 @@ func (h *hub) run() {
 	}
 }
 
+// internal method, adds client to the hub
+func (h *hub) _registerConn(c *connection) {
+	debug.Debug("new connection being registered for " + c.namespace)
+	h.connections[c] = true
+	h.router.InsertAt(router.NS(c.namespace), c)
+}
+
 // internal method, removes that client from the hub and tells it to shutdown
 // _unregister is safe to call multiple times with the same connection
 func (h *hub) _unregisterConn(c *connection) {
+	debug.Debug("connection told us to unregister for " + c.namespace)
 	delete(h.connections, c)
+
+	routerNode, err := h.router.Find(router.NS(c.namespace))
+	if err == nil {
+		routerNode.Remove(c)
+	}
 }
 
 // internal method, removes that client from the hub and tells it to shutdown
@@ -95,8 +108,11 @@ func (h *hub) _shutdownConn(c *connection) {
 // due to any client having a full send buffer,
 func (h *hub) _broadcastMessage(msg SSEMessage) {
 	formattedMsg := msg.sseFormat()
-	for c := range h.connections {
-		if strings.HasPrefix(msg.Namespace, c.namespace) {
+	ns := router.NS(msg.Namespace)
+	matchedNode := h.router.FindOrCreate(ns)
+	if matchedNode != nil {
+		matchedNode.ForEachAscendingValue(func(v *router.Value) {
+			c := (*v).(*connection)
 			select {
 			case c.send <- formattedMsg:
 			default:
@@ -116,6 +132,7 @@ func (h *hub) _broadcastMessage(msg SSEMessage) {
 					so server can never fill up max num of open sockets.
 				*/
 			}
-		}
+		})
 	}
+
 }
