@@ -75,7 +75,7 @@ func TestBroadcastSingleplex(t *testing.T) {
 	}
 	for _, c := range d {
 		if actual := len(c.conn.send); actual != c.expected {
-			t.Fatalf("Expected conn to have %d message in queue, actual: %d",
+			t.Errorf("Expected conn to have %d message in queue, actual: %d",
 				c.expected, actual)
 		}
 	}
@@ -138,8 +138,8 @@ func TestBroadcastWildcards(t *testing.T) {
 	}
 	for _, c := range d {
 		if actual := len(c.conn.send); actual != c.expected {
-			t.Errorf("Expected conn to have %d message in queue, actual: %d",
-				c.expected, actual)
+			t.Errorf("Expected conn %v to have %d message in queue, actual: %d",
+				c.conn.namespace, c.expected, actual)
 		}
 	}
 }
