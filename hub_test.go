@@ -266,7 +266,7 @@ func BenchmarkBroadcast(b *testing.B) {
 }
 
 // benchmark for namespaced benchmarked
-func BenchmarkNamespacedBroadcast(b *testing.B) {
+func BenchmarkBroadcastNS(b *testing.B) {
 	var msgBytes = []byte("foo bar woo")
 	var sizes = []int{100, 1000, 10000}
 
