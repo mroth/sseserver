@@ -111,8 +111,8 @@ func (h *hub) _broadcastMessage(msg SSEMessage) {
 	ns := router.NS(msg.Namespace)
 	matchedNode := h.router.FindOrCreate(ns)
 	if matchedNode != nil {
-		matchedNode.ForEachAscendingValue(func(v *router.Value) {
-			c := (*v).(*connection)
+		matchedNode.ForEachAscendingValue(func(v router.Value) {
+			c := v.(*connection)
 			select {
 			case c.send <- formattedMsg:
 			default:

@@ -171,20 +171,20 @@ func (n *Node) Ancestors() []*Node {
 
 // ForEachAscendingValue traverses up the tree, applying fn to all the values
 // contained in every Node along the way.
-func (n *Node) ForEachAscendingValue(fn func(*Value)) {
+func (n *Node) ForEachAscendingValue(fn func(Value)) {
 	n.TraverseUp(func(np *Node) {
 		for v := range np.values {
-			fn(&v)
+			fn(v)
 		}
 	})
 }
 
 // ForEachDescendingValue traverses up the tree, applying fn to all the values
 // contained in every Node along the way.
-func (n *Node) ForEachDescendingValue(fn func(*Value)) {
+func (n *Node) ForEachDescendingValue(fn func(Value)) {
 	n.TraverseDown(func(np *Node) {
 		for v := range np.values {
-			fn(&v)
+			fn(v)
 		}
 	})
 }

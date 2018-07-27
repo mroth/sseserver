@@ -234,8 +234,8 @@ func BenchmarkComparative(b *testing.B) {
 
 	_benchNew := func(b *testing.B, targetNS Namespace) {
 		for i := 0; i < b.N; i++ {
-			et.FindOrCreate(targetNS).ForEachAscendingValue(func(v *Value) {
-				sink <- (*v).(string)
+			et.FindOrCreate(targetNS).ForEachAscendingValue(func(v Value) {
+				sink <- v.(string)
 			})
 		}
 	}
