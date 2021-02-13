@@ -1,6 +1,6 @@
 module github.com/mroth/sseserver
 
-go 1.10
+go 1.11
 
 require (
 	github.com/GeertJohan/go.rice v1.0.2
