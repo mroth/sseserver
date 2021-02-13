@@ -94,7 +94,7 @@ func (n *Node) FindOrCreate(ns Namespace) *Node {
 
 // Values returns all values associated with a Node
 func (n *Node) Values() []Value {
-	var vs []Value
+	vs := make([]Value, 0, len(n.values))
 	for v := range n.values {
 		vs = append(vs, v)
 	}

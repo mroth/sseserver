@@ -76,6 +76,12 @@ func TestStringToNamespace(t *testing.T) {
 	}
 }
 
+func BenchmarkStringToNamespace(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		NS("/pets/dogs/terriers/")
+	}
+}
+
 func TestNamespaceToString(t *testing.T) {
 	testCases := []struct {
 		ns Namespace
@@ -184,6 +190,7 @@ func BenchmarkDescendents(b *testing.B) {
 	bar3.FindOrCreate(NS("hey1"))
 	bar3.FindOrCreate(NS("hey2"))
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		root.Descendents()
 	}
