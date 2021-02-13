@@ -1,7 +1,8 @@
 # sseserver :surfing_man:
 
-[![Build Status](https://travis-ci.org/mroth/sseserver.svg?branch=master)](https://travis-ci.org/mroth/sseserver)
-[![GoDoc](https://godoc.org/github.com/mroth/sseserver?status.svg)](https://godoc.org/github.com/mroth/sseserver)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/mroth/sseserver)](https://pkg.go.dev/github.com/mroth/sseserver)
+[![Build Status](https://github.com/mroth/sseserver/workflows/test/badge.svg)](https://github.com/mroth/sseserver/actions)
+[![CodeFactor](https://www.codefactor.io/repository/github/mroth/sseserver/badge)](https://www.codefactor.io/repository/github/mroth/sseserver)
 [![Go Report Card](https://goreportcard.com/badge/github.com/mroth/sseserver)](https://goreportcard.com/report/github.com/mroth/sseserver)
 
 > A high performance and thread-safe Server-Sent Events server for Go with
