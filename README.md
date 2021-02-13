@@ -195,10 +195,7 @@ own reporting.  These endpoints can be disabled in the settings (see `Server.Opt
 can easily integrate it with most existing HTTP middleware, and easily plug it
 into whatever you are using for your current routing, etc.
 
-## Acknowledgements
+## License
 
-A lot of the initial ideas for handling the connection hub in idiomatic Go
-originally came from Gary Burd's [go-websocket-chat][1], but has since
-undergone extensive modification.
-
-[1]: http://gary.burd.info/go-websocket-chat
+[AGPL-3.0](https://opensource.org/licenses/AGPL-3.0). Dual commercial licensing
+available upon request.
