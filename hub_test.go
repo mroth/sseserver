@@ -208,7 +208,7 @@ func TestKillsStalledConnection(t *testing.T) {
 		h.broadcast <- msg
 		// need to pause execution the tiniest bit to allow
 		// other goroutines to execute if running on GOMAXPROCS=1
-		time.Sleep(time.Nanosecond)
+		time.Sleep(time.Microsecond)
 	}
 
 	// one of the connections should have been shutdown now...
