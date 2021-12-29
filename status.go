@@ -1,15 +1,10 @@
 package sseserver
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"sort"
 	"time"
-
-	rice "github.com/GeertJohan/go.rice"
 )
 
 // ReportingStatus is snapshot of metadata about the status of a Server
@@ -80,48 +75,4 @@ func env() string {
 		return env
 	}
 	return "development"
-}
-
-// Handles serving the static HTML page
-func adminStatusHTMLHandler(w http.ResponseWriter, r *http.Request) {
-	// kinda ridiculous workaround for serving a single static file, sigh.
-	box, err := rice.FindBox("views")
-	if err != nil {
-		log.Fatalf("error opening rice.Box: %s\n", err)
-	}
-
-	file, err := box.Open("admin.html")
-	if err != nil {
-		log.Fatalf("could not open file: %s\n", err)
-	}
-
-	fstat, err := file.Stat()
-	if err != nil {
-		log.Fatalf("could not stat file: %s\n", err)
-	}
-
-	http.ServeContent(w, r, fstat.Name(), fstat.ModTime(), file)
-}
-
-// Handles serving the JSON status data, effectively the admin API endpoint
-func adminStatusDataHandler(w http.ResponseWriter, r *http.Request, s *Server) {
-	w.Header().Set("Content-Type", "application/json")
-	b, _ := json.MarshalIndent(s.Status(), "", "  ")
-	fmt.Fprint(w, string(b))
-}
-
-func adminHandler(s *Server) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.Options.DisableAdminEndpoints {
-			http.Error(w, "403 admin endpoint disabled", http.StatusForbidden)
-			return
-		}
-
-		mux := http.NewServeMux()
-		mux.HandleFunc("/admin/", adminStatusHTMLHandler)
-		mux.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {
-			adminStatusDataHandler(w, r, s)
-		})
-		mux.ServeHTTP(w, r)
-	})
 }

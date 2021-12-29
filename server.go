@@ -22,7 +22,7 @@ type Server struct {
 // ServerOptions defines a set of high-level user options that can be customized
 // for a Server.
 type ServerOptions struct {
-	DisableAdminEndpoints bool // disables the "/admin" status endpoints
+	DisableAdminEndpoints bool // DEPRECATED: admin endpoints no longer enabled by default
 	// DisallowRootSubscribe bool // TODO: possibly consider this option?
 }
 
@@ -50,10 +50,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"/subscribe/",
 		http.StripPrefix("/subscribe", connectionHandler(s.hub)),
 	)
-	mux.Handle(
-		"/admin/",
-		adminHandler(s),
-	)
 	mux.ServeHTTP(w, r)
 }
 
@@ -73,6 +69,18 @@ func (s *Server) Serve(addr string) {
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
+}
+
+// CONSIDER: func (s *Server) Drain() for allowing active connections to drain. This
+// will require some thinking since SSE connections can be *very* long lived.
+// Handling this via k8s may work by default looking at active HTTP connections.
+
+// Shutdown a server gracefully, closing active connections.
+//
+// Currently, this returns immediately, and does not wait for connections to be
+// closed in the background.
+func (s *Server) Shutdown() {
+	s.hub.Shutdown()
 }
 
 // ProxyRemoteAddrHandler is HTTP middleware to determine the actual RemoteAddr

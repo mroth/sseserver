@@ -183,12 +183,16 @@ EventSource standard should already automatically ignore and filter out these
 messages for you.
 
 ### Admin Page
-By default, an admin status page is available for easy monitoring.
+
+Out of the box, an admin status page is available for easy monitoring of active
+connections.
 
 ![screenshot](http://f.cl.ly/items/1v2X1k342K3p0K1O2x0B/ssestreamer-admin.png)
 
 It's powered by a simple JSON API endpoint, which you can also use to build your
-own reporting.  These endpoints can be disabled in the settings (see `Server.Options`).
+own reporting.
+
+See `examples/enable-admin` to see how to activate.
 
 ### HTTP Middleware
 

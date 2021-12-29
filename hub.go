@@ -39,8 +39,6 @@ func newHub() *hub {
 //
 // right now we are only using this in tests, in the future we may want to be
 // able to more gracefully shut down a Server in production as well, but...
-//
-// TODO: need to do some thinking before exposing this interface more broadly.
 func (h *hub) Shutdown() {
 	h.shutdown <- true
 }
