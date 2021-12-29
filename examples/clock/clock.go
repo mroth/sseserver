@@ -27,7 +27,5 @@ func main() {
 		http.ServeFile(w, r, "index.html")
 	})
 	http.Handle("/subscribe/", s)
-
-	// s.Serve(":8111") // bind to port and begin serving connections
 	http.ListenAndServe(":8111", nil)
 }
