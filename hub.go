@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azer/debug"
+	"github.com/mroth/sseserver/internal/debug"
 )
 
 // A hub keeps track of all the active client connections, and handles

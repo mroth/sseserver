@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/azer/debug"
+	"github.com/mroth/sseserver/internal/debug"
 )
 
 const connBufSize = 256
