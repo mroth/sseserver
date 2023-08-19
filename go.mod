@@ -1,3 +1,3 @@
 module github.com/mroth/sseserver
 
-go 1.16
+go 1.20
