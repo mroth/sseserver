@@ -103,7 +103,7 @@ func main() {
         s.Broadcast <- sseserver.SSEMessage{"new-cat", []byte("LOLcat"), "/pets/cats"}
     }()
 
-    s.Serve(":8001") // bind to port and begin serving connections
+    http.ListenAndServe(":8001", s) // bind to port and begin serving connections
 }
 ```
 

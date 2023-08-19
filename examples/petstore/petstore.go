@@ -6,7 +6,9 @@ deserialize back into Javascript objects on the client side.
 package main
 
 import (
+	"log"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/mroth/sseserver"
@@ -46,5 +48,21 @@ func main() {
 		}
 	}()
 
-	s.Serve(":8222") // bind to port and beging serving connections
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
+	})
+	http.Handle("/subscribe/", requestLogger(s))
+	http.ListenAndServe(":8222", nil)
+}
+
+// requestLogger is a sample of integrating logging via HTTP middleware.
+//
+// Note that due to the long connection time of SSE requests you likely want to
+// log connection and disconnection separately.
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("CONNECT\t", r.URL.Path, "\t", r.RemoteAddr)
+		next.ServeHTTP(w, r)
+		log.Println("DISCONNECT\t", r.URL.Path, "\t", r.RemoteAddr)
+	})
 }
