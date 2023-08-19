@@ -11,12 +11,14 @@ import (
 	"strings"
 )
 
-var Enabled = strings.ToLower(os.Getenv("SCMPUFF_DEBUG")) == "true"
+var Enabled = os.Getenv("SSESERVER_DEBUG") != ""
 
 func Debug(v ...interface{}) {
-	prefix := fmt.Sprintf("DEBUG(%s):", caller())
-	args := append([]interface{}{prefix}, v...)
-	log.Println(args...)
+	if Enabled {
+		prefix := fmt.Sprintf("DEBUG(%s):", caller())
+		args := append([]interface{}{prefix}, v...)
+		log.Println(args...)
+	}
 }
 
 func caller() string {
