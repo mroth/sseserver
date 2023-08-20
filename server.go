@@ -16,16 +16,15 @@ import (
 // existing HTTP routing muxes if desired.
 type Server struct {
 	Broadcast chan<- SSEMessage
-	Options   ServerOptions
 	hub       *hub
 }
 
 // ServerOptions defines a set of high-level user options that can be customized
 // for a Server.
-type ServerOptions struct {
-	DisableAdminEndpoints bool // DEPRECATED: admin endpoints no longer enabled by default
-	// DisallowRootSubscribe bool // TODO: possibly consider this option?
-}
+// type ServerOptions struct {
+// 	DisableAdminEndpoints bool // DEPRECATED: admin endpoints no longer enabled by default
+// 	// DisallowRootSubscribe bool // TODO: possibly consider this option?
+// }
 
 // NewServer creates a new Server and returns a reference to it.
 func NewServer() *Server {

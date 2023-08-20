@@ -28,11 +28,6 @@ func adminStatusDataHandler(w http.ResponseWriter, r *http.Request, s *sseserver
 
 func AdminHandler(s *sseserver.Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.Options.DisableAdminEndpoints {
-			http.Error(w, "403 admin endpoint disabled", http.StatusForbidden)
-			return
-		}
-
 		mux := http.NewServeMux()
 		mux.HandleFunc("/admin/", adminStatusHTMLHandler)
 		mux.HandleFunc("/admin/status.json", func(w http.ResponseWriter, r *http.Request) {

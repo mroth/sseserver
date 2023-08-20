@@ -57,32 +57,3 @@ func TestAdminHTTPStatusAPI(t *testing.T) {
 	// TODO: perhaps test proper clients show up as well!
 
 }
-
-// it should disable all HTTP endpoints based on ServerOptions
-func TestAdminDisableEndpoints(t *testing.T) {
-	s := sseserver.NewServer()
-	defer s.Shutdown()
-	s.Options.DisableAdminEndpoints = true
-
-	for _, path := range []string{"/admin/", "/admin/status.json"} {
-		req, err := http.NewRequest("GET", path, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		rr := httptest.NewRecorder()
-		handler := admin.AdminHandler(s)
-		handler.ServeHTTP(rr, req)
-
-		if status := rr.Code; status != http.StatusForbidden {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusForbidden)
-		}
-
-		expected := "403 admin endpoint disabled\n"
-		if rr.Body.String() != expected {
-			t.Errorf("handler returned unexpected body: got %v want %v",
-				rr.Body.String(), expected)
-		}
-	}
-}
