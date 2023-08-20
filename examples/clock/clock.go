@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -8,7 +9,10 @@ import (
 )
 
 func main() {
-	s := sseserver.NewServer()
+	s, err := sseserver.NewServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// broadcast the time every second to the "/time" namespace
 	go func() {

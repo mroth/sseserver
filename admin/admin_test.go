@@ -11,7 +11,10 @@ import (
 
 // it should serve a HTML index page
 func TestAdminHTTPIndex(t *testing.T) {
-	s := sseserver.NewServer()
+	s, err := sseserver.NewServer()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer s.Shutdown()
 
 	req, err := http.NewRequest("GET", "/admin/", nil)
@@ -31,7 +34,10 @@ func TestAdminHTTPIndex(t *testing.T) {
 
 // it should expose a REST JSON status API
 func TestAdminHTTPStatusAPI(t *testing.T) {
-	s := sseserver.NewServer()
+	s, err := sseserver.NewServer()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer s.Shutdown()
 
 	req, err := http.NewRequest("GET", "/admin/status.json", nil)

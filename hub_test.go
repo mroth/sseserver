@@ -17,7 +17,7 @@ func mockHub(numConnections int) (h *hub) {
 
 func mockConn(namespace string) *connection {
 	return &connection{
-		send:      make(chan []byte, connBufSize),
+		send:      make(chan []byte, defaultConnBufSize),
 		created:   time.Now(),
 		namespace: namespace,
 	}
@@ -37,7 +37,7 @@ func mockSinkedHub(initialConnections map[string]int) (h *hub) {
 // mock a connection that sinks data sent to it
 func mockSinkedConn(namespace string, h *hub) *connection {
 	c := &connection{
-		send:      make(chan []byte, connBufSize),
+		send:      make(chan []byte, defaultConnBufSize),
 		created:   time.Now(),
 		namespace: namespace,
 	}
@@ -204,7 +204,7 @@ func TestKillsStalledConnection(t *testing.T) {
 
 	// send connBufSize+50% messages, ensuring the buffer overflows
 	msg := SSEMessage{Data: []byte("hi"), Namespace: namespace}
-	for i := 0; i <= connBufSize+(connBufSize*0.5); i++ {
+	for i := 0; i <= defaultConnBufSize+(defaultConnBufSize*0.5); i++ {
 		h.broadcast <- msg
 		// need to pause execution the tiniest bit to allow
 		// other goroutines to execute if running on GOMAXPROCS=1

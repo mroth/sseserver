@@ -7,7 +7,9 @@ import (
 	"github.com/mroth/sseserver/internal/debug"
 )
 
-const connBufSize = 256
+const (
+	defaultConnBufSize = 256
+)
 
 type connection struct {
 	r         *http.Request       // The HTTP request
@@ -18,9 +20,9 @@ type connection struct {
 	msgsSent  uint64              // Msgs the connection has sent (all time)
 }
 
-func newConnection(w http.ResponseWriter, r *http.Request, namespace string) *connection {
+func newConnection(w http.ResponseWriter, r *http.Request, namespace string, bufCount uint) *connection {
 	return &connection{
-		send:      make(chan []byte, connBufSize),
+		send:      make(chan []byte, bufCount),
 		w:         w,
 		r:         r,
 		created:   time.Now(),
@@ -99,22 +101,26 @@ func (c *connection) writer() {
 	}
 }
 
-func connectionHandler(h *hub) http.Handler {
+// connectionHandler returns a http.HandlerFunc that sets up a connections to
+// register with the server hub.
+func connectionHandler(s *Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// write headers
 		headers := w.Header()
-		headers.Set("Access-Control-Allow-Origin", "*") // TODO: make optional
 		headers.Set("Content-Type", "text/event-stream; charset=utf-8")
 		headers.Set("Cache-Control", "no-cache")
 		headers.Set("Connection", "keep-alive")
-		headers.Set("Server", "mroth/sseserver")
+		if origin := s.conf.CORSAllowOrigin; origin != "" {
+			headers.Set("Access-Control-Allow-Origin", origin)
+		}
+		headers.Set("Server", "mroth/sseserver") // TODO: add version info, make overrideable
 
 		// get namespace from URL path, init connection & register with hub
 		namespace := r.URL.Path
-		c := newConnection(w, r, namespace)
-		h.register <- c
+		c := newConnection(w, r, namespace, s.conf.ConnBufSize)
+		s.hub.register <- c
 		defer func() {
-			h.unregister <- c
+			s.hub.unregister <- c
 		}()
 
 		// start the connection's main broadcasting event loop

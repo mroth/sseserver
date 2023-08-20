@@ -26,7 +26,10 @@ func randomBreed(breeds []string) []byte {
 }
 
 func main() {
-	s := sseserver.NewServer()
+	s, err := sseserver.NewServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// simulate sending some scoped events on the "/pets" namespace
 	go func() {
