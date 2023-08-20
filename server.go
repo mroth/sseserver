@@ -2,6 +2,8 @@ package sseserver
 
 import (
 	"net/http"
+	"sort"
+	"time"
 )
 
 // Server is the primary interface to a SSE server.
@@ -62,4 +64,35 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // closed in the background.
 func (s *Server) Shutdown() {
 	s.hub.Shutdown()
+}
+
+// ServerStatus is snapshot of metadata describing the status of a Server.
+type ServerStatus struct {
+	Status      string             `json:"status"`
+	Reported    int64              `json:"reported_at"`
+	StartupTime int64              `json:"startup_time"`
+	SentMsgs    uint64             `json:"msgs_broadcast"`
+	Connections []ConnectionStatus `json:"connections"`
+}
+
+// Status returns a snaphot of status metadata for the Server.
+//
+// Primarily intended for logging and reporting.
+func (s *Server) Status() ServerStatus {
+	cl := make([]ConnectionStatus, 0, len(s.hub.connections))
+	for k := range s.hub.connections {
+		cl = append(cl, k.Status())
+	}
+	// sort by age of connection
+	sort.Slice(cl, func(i, j int) bool {
+		return cl[i].Created < cl[j].Created
+	})
+
+	return ServerStatus{
+		Status:      "OK",
+		Reported:    time.Now().Unix(),
+		StartupTime: s.hub.startupTime.Unix(),
+		SentMsgs:    s.hub.sentMsgs,
+		Connections: cl,
+	}
 }

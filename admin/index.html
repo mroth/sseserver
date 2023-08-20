@@ -114,7 +114,7 @@
       function Connection(client) {
         var self = this;
         self.request_path = client.namespace;
-        self.remote_ip = client.client_ip;
+        self.remote_ip = client.remote_addr;
         self.user_agent = client.user_agent;
         self.created_at = new Date(client.created_at * 1000);
         self.created_iso = new Date(client.created_at * 1000).toISOString();

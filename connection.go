@@ -28,23 +28,27 @@ func newConnection(w http.ResponseWriter, r *http.Request, namespace string) *co
 	}
 }
 
-type connectionStatus struct {
-	Path      string `json:"request_path"`
-	Namespace string `json:"namespace"`
-	Created   int64  `json:"created_at"`
-	ClientIP  string `json:"client_ip"`
-	UserAgent string `json:"user_agent"`
-	MsgsSent  uint64 `json:"msgs_sent"`
+// ConnectionStatus is snapshot of metadata describing the status of a connection.
+type ConnectionStatus struct {
+	Path       string `json:"request_path"`
+	Namespace  string `json:"namespace"`
+	Created    int64  `json:"created_at"`
+	RemoteAddr string `json:"remote_addr"`
+	UserAgent  string `json:"user_agent"`
+	MsgsSent   uint64 `json:"msgs_sent"`
 }
 
-func (c *connection) Status() connectionStatus {
-	return connectionStatus{
-		Path:      c.r.URL.Path,
-		Namespace: c.namespace,
-		Created:   c.created.Unix(),
-		ClientIP:  c.r.RemoteAddr,
-		UserAgent: c.r.UserAgent(),
-		MsgsSent:  c.msgsSent,
+// Status returns a snaphot of status metadata for the connection.
+//
+// Primarily intended for logging and reporting.
+func (c *connection) Status() ConnectionStatus {
+	return ConnectionStatus{
+		Path:       c.r.URL.Path,
+		Namespace:  c.namespace,
+		Created:    c.created.Unix(),
+		RemoteAddr: c.r.RemoteAddr,
+		UserAgent:  c.r.UserAgent(),
+		MsgsSent:   c.msgsSent,
 	}
 }
 
