@@ -12,8 +12,8 @@ const (
 )
 
 type connection struct {
-	r         *http.Request       // The HTTP request
-	w         http.ResponseWriter // The HTTP response
+	r         *http.Request       // HTTP Request that spawned the connection
+	w         http.ResponseWriter // HTTP ResponseWriter for connection
 	created   time.Time           // Timestamp for when connection was opened
 	send      chan []byte         // Buffered channel of outbound messages
 	namespace string              // Conceptual "channel" SSE client is requesting
@@ -68,15 +68,14 @@ func (c *connection) writer() {
 	for {
 		select {
 		case msg, ok := <-c.send:
-			if !ok { // chan was closed
-				// ...our hub told us we have nothing left to do
+			if !ok { // send chan was closed (hub told us we have nothing left to do)
 				debug.Debug("hub told us to shut down")
 				return
 			}
 			// otherwise write message out to client
 			_, err := c.w.Write(msg)
 			if err != nil {
-				debug.Debug("Error writing msg to client, closing")
+				debug.Debug("error writing msg to client, closing")
 				return
 			}
 			if f, ok := c.w.(http.Flusher); ok {
@@ -87,7 +86,7 @@ func (c *connection) writer() {
 		case <-keepaliveTickler.C:
 			_, err := c.w.Write(keepaliveMsg)
 			if err != nil {
-				debug.Debug("Error writing keepalive to client, closing")
+				debug.Debug("error writing keepalive to client, closing")
 				return
 			}
 			if f, ok := c.w.(http.Flusher); ok {
