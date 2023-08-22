@@ -23,8 +23,8 @@ type Server struct {
 
 // serverConfig defines configurable options that can be customized for a Server.
 type serverConfig struct {
-	CORSAllowOrigin string // Access-Control-Allow-Origin header value (dont send header if blank)
-	ConnBufSize     uint   // message buffer count for new connections (TODO: add option&tests)
+	ConnMsgBufSize  uint   // message buffer count for new connections
+	CORSAllowOrigin string // Access-Control-Allow-Origin HTTP header value (omit header if set to empty)
 }
 
 // NewServer creates a new Server with optional ServerOptions for configuration.
@@ -36,7 +36,8 @@ func NewServer(opts ...ServerOption) (*Server, error) {
 		hub:       hub,
 
 		conf: serverConfig{
-			ConnBufSize: defaultConnBufSize,
+			ConnMsgBufSize:  DefaultConnMsgBufferSize,
+			CORSAllowOrigin: "",
 		},
 	}
 
@@ -69,6 +70,20 @@ func WithCORSAllowOrigin(origin string) ServerOption {
 		return nil
 	}
 	// TODO: update examples/docs to use this
+}
+
+// WithConnMsgBuffer sets the per-connection message buffer size.
+//
+// Each HTTP connection maintains a buffer of outgoing messages waiting to be
+// flushed. If the message queue for that connection exceeds the maximum buffer
+// size, the server will attempt to close the connection.
+//
+// The default buffer size if not configured is DefaultConnMsgBufferSize.
+func WithConnMsgBuffer(size uint) ServerOption {
+	return func(s *Server) error {
+		s.conf.ConnMsgBufSize = size
+		return nil
+	}
 }
 
 // ServeHTTP implements the http.Handler interface

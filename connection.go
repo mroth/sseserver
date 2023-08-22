@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultConnBufSize = 256
+	DefaultConnMsgBufferSize = 256 // default per-connection message buffer size
 )
 
 type connection struct {
@@ -116,7 +116,7 @@ func connectionHandler(s *Server) http.Handler {
 
 		// get namespace from URL path, init connection & register with hub
 		namespace := r.URL.Path
-		c := newConnection(w, r, namespace, s.conf.ConnBufSize)
+		c := newConnection(w, r, namespace, s.conf.ConnMsgBufSize)
 		s.hub.register <- c
 		defer func() {
 			s.hub.unregister <- c

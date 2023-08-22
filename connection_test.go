@@ -112,7 +112,7 @@ func TestConnectionSend(t *testing.T) {
 	// if able to move [r,w] out of connection wont need these...
 	req, _ := http.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
-	c := newConnection(rr, req, "butts", defaultConnBufSize)
+	c := newConnection(rr, req, "test", DefaultConnMsgBufferSize)
 
 	// async send a sse msg 2x then close
 	msg := SSEMessage{Event: "foo", Data: []byte("bar")}
