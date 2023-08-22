@@ -20,11 +20,13 @@ func TestConnectionHandler(t *testing.T) {
 	var testcases = []struct {
 		name          string
 		opts          []ServerOption
+		expectStatus  int
 		expectHeaders http.Header
 	}{
 		{
-			name: "default",
-			opts: nil,
+			name:         "default",
+			opts:         nil,
+			expectStatus: http.StatusOK,
 			expectHeaders: http.Header{
 				"Content-Type":  {"text/event-stream; charset=utf-8"},
 				"Connection":    {"keep-alive"},
@@ -36,6 +38,7 @@ func TestConnectionHandler(t *testing.T) {
 			opts: []ServerOption{
 				WithCORSAllowOrigin("*"),
 			},
+			expectStatus: http.StatusOK,
 			expectHeaders: http.Header{
 				"Content-Type":                {"text/event-stream; charset=utf-8"},
 				"Connection":                  {"keep-alive"},
@@ -46,59 +49,54 @@ func TestConnectionHandler(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// need to have a running hub, otherwise conn blocks trying to register
+			t.Parallel()
+
+			// need a running hub otherwise connection handler will block trying to register
 			s, err := NewServer(tc.opts...)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer s.Shutdown()
+			handler := connectionHandler(s)
 
-			// use http.Request with Timeout context, so it will close itself, this
-			// is a hacky way to just disconnect after we have all the headers without
-			// messing around with modifying the http.ResponseRecorder too much.
-			//
-			// See also: https://github.com/golang/go/issues/4436
-			req, err := http.NewRequest("GET", "/", nil)
+			// the connection will remain open to be available to stream content, so here we set a
+			// timeout on the request context in order to drop the connection from the client side
+			// after we have the headers
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+			defer cancel()
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			rr := httptest.NewRecorder()
-			handler := connectionHandler(s)
-			ctx := req.Context()
-			ctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
-			defer cancel()
-			handler.ServeHTTP(rr, req.WithContext(ctx))
+			handler.ServeHTTP(rr, req)
 
-			t.Run("status", func(t *testing.T) {
-				// for now, expected status code is hardcoded OK
-				expect := http.StatusOK
-				if status := rr.Code; status != expect {
-					t.Errorf("handler returned wrong status code: got %v want %v",
-						status, expect)
-				}
-			})
+			// check status code
+			if got, want := rr.Code, tc.expectStatus; got != want {
+				t.Errorf("unexpected status code: got %v want %v", got, want)
+			}
 
-			t.Run("headers", func(t *testing.T) {
-				// check for missing or incorrect headers
-				gotHeaders := rr.Result().Header
-				for key, wantVal := range tc.expectHeaders {
-					gotVal, found := gotHeaders[key]
-					if !found {
-						t.Errorf("missing expected header: %v: %v", key, wantVal)
-					} else if !reflect.DeepEqual(gotVal, wantVal) {
-						t.Errorf("%v: got %v want %v", key, gotVal, wantVal)
-					}
+			// check for missing headers or incorrect header values
+			gotHeaders := rr.Result().Header
+			for key, wantVal := range tc.expectHeaders {
+				gotVal, found := gotHeaders[key]
+				if !found {
+					t.Errorf("missing expected header: %v: %v", key, wantVal)
+				} else if !reflect.DeepEqual(gotVal, wantVal) {
+					t.Errorf("%v: got %v want %v", key, gotVal, wantVal)
 				}
-				// check for unexpected headers
-				for k, v := range gotHeaders {
-					_, found := tc.expectHeaders[k]
-					if !found {
-						t.Errorf("found unexpected header: %v: %v", k, v)
-					}
-				}
-			})
+			}
 
+			// check for presence of any unexpected headers
+			for k, v := range gotHeaders {
+				_, found := tc.expectHeaders[k]
+				if !found {
+					t.Errorf("found unexpected header: %v: %v", k, v)
+				}
+			}
 		})
 	}
 
