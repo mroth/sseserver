@@ -29,7 +29,6 @@ func TestConnectionHandler(t *testing.T) {
 				"Content-Type":  {"text/event-stream; charset=utf-8"},
 				"Connection":    {"keep-alive"},
 				"Cache-Control": {"no-cache"},
-				"Server":        {"mroth/sseserver"},
 			},
 		},
 		{
@@ -42,7 +41,6 @@ func TestConnectionHandler(t *testing.T) {
 				"Connection":                  {"keep-alive"},
 				"Cache-Control":               {"no-cache"},
 				"Access-Control-Allow-Origin": {"*"},
-				"Server":                      {"mroth/sseserver"},
 			},
 		},
 	}

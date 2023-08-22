@@ -113,7 +113,6 @@ func connectionHandler(s *Server) http.Handler {
 		if origin := s.conf.CORSAllowOrigin; origin != "" {
 			headers.Set("Access-Control-Allow-Origin", origin)
 		}
-		headers.Set("Server", "mroth/sseserver") // TODO: add version info, make overrideable
 
 		// get namespace from URL path, init connection & register with hub
 		namespace := r.URL.Path
