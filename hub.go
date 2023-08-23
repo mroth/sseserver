@@ -18,10 +18,10 @@ type hub struct {
 	broadcast  chan SSEMessage  // Inbound messages to propagate out
 	register   chan *connection // Register requests from the connections
 	unregister chan *connection // Unregister requests from connections
-	shutdown   chan bool        // Internal chan to handle shutdown notification
+	shutdown   chan struct{}    // Internal chan to handle shutdown notification
 
 	// INTERNAL STATE
-	connections map[*connection]bool // Registered connections.
+	connections map[*connection]struct{} // Registered connections.
 
 	// METADATA
 	sentMsgs    uint64    // Msgs broadcast since startup
@@ -33,8 +33,8 @@ func newHub() *hub {
 		broadcast:   make(chan SSEMessage),
 		register:    make(chan *connection),
 		unregister:  make(chan *connection),
-		shutdown:    make(chan bool),
-		connections: make(map[*connection]bool),
+		shutdown:    make(chan struct{}),
+		connections: make(map[*connection]struct{}),
 		startupTime: time.Now(),
 	}
 }
@@ -44,7 +44,7 @@ func newHub() *hub {
 // right now we are only using this in tests, in the future we may want to be
 // able to more gracefully shut down a Server in production as well, but...
 func (h *hub) Shutdown() {
-	h.shutdown <- true
+	h.shutdown <- struct{}{}
 }
 
 // Start begins the main run loop for a hub in a background go func.
@@ -90,7 +90,7 @@ it impossible to accidentally abuse these.
 // INTERNAL EVENT LOOP METHOD.
 func (h *hub) _registerConn(c *connection) {
 	debug.Debug("new connection being registered for " + c.namespace)
-	h.connections[c] = true
+	h.connections[c] = struct{}{}
 }
 
 // _unregisterConn removes a connection from the hub.
