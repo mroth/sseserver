@@ -84,12 +84,11 @@ func main() {
     // broadcast the time every second to the "/time" namespace
     go func() {
         ticker := time.Tick(time.Duration(1 * time.Second))
-        for {
-            // wait for the ticker to fire
-            t := <-ticker
-            // create the message payload, can be any []byte value
-            data := []byte(t.Format("3:04:05 pm (MST)"))
-            // send a message without an event on the "/time" namespace
+        for { 
+            t := <-ticker // wait for the ticker to fire
+            data := []byte(t.Format(time.RFC822)) // message payload
+            
+            // broadcast message without an event on "/time" namespace
             s.Broadcast <- sseserver.SSEMessage{"", data, "/time"}
         }
     }()
