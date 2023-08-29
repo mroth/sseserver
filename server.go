@@ -48,10 +48,6 @@ func NewServer(opts ...ServerOption) (*Server, error) {
 		}
 	}
 
-	// start up our actual internal connection hub
-	// which we keep in the server struct as private
-	s.hub.Start()
-
 	return s, nil
 }
 

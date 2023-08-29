@@ -8,7 +8,6 @@ import (
 
 func mockHub(numConnections int) (h *hub) {
 	h = newHub()
-	h.Start()
 	for i := 0; i < numConnections; i++ {
 		h.register <- mockConn("/test")
 	}
@@ -25,7 +24,6 @@ func mockConn(namespace string) *connection {
 
 func mockSinkedHub(initialConnections map[string]int) (h *hub) {
 	h = newHub()
-	h.Start()
 	for namespace, num := range initialConnections {
 		for i := 0; i < num; i++ {
 			h.register <- mockSinkedConn(namespace, h)
@@ -59,6 +57,8 @@ type deliveryCase struct {
 
 func TestBroadcastSingleplex(t *testing.T) {
 	h := mockHub(0)
+	defer h.Shutdown()
+
 	c1 := mockConn("/foo")
 	c2 := mockConn("/bar")
 	h.register <- c1
@@ -84,6 +84,8 @@ func TestBroadcastSingleplex(t *testing.T) {
 
 func TestBroadcastMultiplex(t *testing.T) {
 	h := mockHub(0)
+	defer h.Shutdown()
+
 	c1 := mockConn("/foo")
 	c2 := mockConn("/foo")
 	c3 := mockConn("/burrito")
@@ -113,6 +115,8 @@ func TestBroadcastMultiplex(t *testing.T) {
 
 func TestBroadcastWildcards(t *testing.T) {
 	h := mockHub(0)
+	defer h.Shutdown()
+
 	cDogs := mockConn("/pets/dogs")
 	cCats := mockConn("/pets/cats")
 	cWild := mockConn("/pets")
@@ -225,6 +229,7 @@ func TestKillsStalledConnection(t *testing.T) {
 func BenchmarkRegister(b *testing.B) {
 	h := mockHub(0)
 	defer h.Shutdown()
+
 	c := mockConn("/pets/cats")
 
 	b.ResetTimer()
@@ -237,6 +242,7 @@ func BenchmarkRegister(b *testing.B) {
 func BenchmarkUnregister(b *testing.B) {
 	h := mockHub(1000)
 	defer h.Shutdown()
+
 	c := mockConn("/pets/cats")
 
 	b.ResetTimer()
@@ -255,12 +261,13 @@ func BenchmarkBroadcast(b *testing.B) {
 	for _, s := range sizes {
 		b.Run(strconv.Itoa(s), func(b *testing.B) {
 			h := mockSinkedHub(map[string]int{"/test": s})
+			defer h.Shutdown()
+
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
 				h.broadcast <- SSEMessage{"", msgBytes, "/test"}
 			}
 			b.StopTimer()
-			h.Shutdown()
 		})
 	}
 }
@@ -283,12 +290,13 @@ func BenchmarkBroadcastNS(b *testing.B) {
 				slashName := "/" + namespace
 				b.Run(strconv.Itoa(s), func(b *testing.B) {
 					hub := mockDensityHub(s)
+					defer hub.Shutdown()
+
 					b.ResetTimer()
 					for n := 0; n < b.N; n++ {
 						hub.broadcast <- SSEMessage{"", msgBytes, slashName}
 					}
 					b.StopTimer()
-					hub.Shutdown()
 				})
 			}
 		})

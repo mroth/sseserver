@@ -1,8 +1,10 @@
 package sseserver
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mroth/sseserver/internal/debug"
@@ -13,56 +15,66 @@ import (
 // namespace.
 //
 // The hub is effectively the "heart" of a Server, but is kept private to hide
-// implementation detais.
+// implementation details.
+//
+// To create a hub, use newHub() to ensure it is initialized properly.
+//
+// A hub should always be cancelled via Shutdown() when it is no longer needed,
+// in order to avoid leaking a goroutine.
 type hub struct {
-	broadcast  chan SSEMessage  // Inbound messages to propagate out
-	register   chan *connection // Register requests from the connections
-	unregister chan *connection // Unregister requests from connections
-	shutdown   chan struct{}    // Internal chan to handle shutdown notification
+	broadcast  chan SSEMessage    // Inbound messages to propagate out
+	register   chan *connection   // Register requests from the connections
+	unregister chan *connection   // Unregister requests from connections
+	cancel     context.CancelFunc // CancelFunc to handle shutdown notification
 
 	// INTERNAL STATE
-	connections map[*connection]struct{} // Registered connections.
+	connections map[*connection]struct{} // Registered connections
+	running     sync.WaitGroup           // Track eventloop goroutine run state
 
 	// METADATA
 	sentMsgs    uint64    // Msgs broadcast since startup
 	startupTime time.Time // Time hub was created
 }
 
+// newHub initializes a new hub and starts its event loop running
 func newHub() *hub {
-	return &hub{
+	ctx, cancel := context.WithCancel(context.Background())
+	h := &hub{
 		broadcast:   make(chan SSEMessage),
 		register:    make(chan *connection),
 		unregister:  make(chan *connection),
-		shutdown:    make(chan struct{}),
+		cancel:      cancel,
 		connections: make(map[*connection]struct{}),
 		startupTime: time.Now(),
 	}
+
+	h.running.Add(1)
+	go func() {
+		defer h.running.Done()
+		h.eventloop(ctx)
+	}()
+
+	return h
 }
 
 // Shutdown method for cancellation of hub run loop.
 //
-// right now we are only using this in tests, in the future we may want to be
-// able to more gracefully shut down a Server in production as well, but...
+// TODO: consider taking a ctx similar to http.Server
 func (h *hub) Shutdown() {
-	h.shutdown <- struct{}{}
+	h.cancel()
+	h.running.Wait()
 }
 
-// Start begins the main run loop for a hub in a background go func.
-func (h *hub) Start() {
-	// TODO: guard against being started multiple times?
-	go h.run()
-}
-
-// run is the internal event loop for a hub.
+// internal event loop for a hub.
 //
 // Developer note: the entire concurrency safety model for a hub is handled via
 // select over control channels. It feels elegant as it means a mutex is not
 // required, but please be certain to not call any of the helper methods outside
 // of this event loop, otherwise safety is not guaranteed.
-func (h *hub) run() {
+func (h *hub) eventloop(ctx context.Context) {
 	for {
 		select {
-		case <-h.shutdown:
+		case <-ctx.Done():
 			h._shutdownAllConnections()
 			return
 		case c := <-h.register:
