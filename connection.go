@@ -116,9 +116,9 @@ func connectionHandler(s *Server) http.Handler {
 		// get namespace from URL path, init connection & register with hub
 		namespace := r.URL.Path
 		c := newConnection(w, r, namespace, s.conf.ConnMsgBufSize)
-		s.hub.register <- c
+		s.hub.Register(c)
 		defer func() {
-			s.hub.unregister <- c
+			s.hub.Unregister(c)
 		}()
 
 		// start the connection's main broadcasting event loop

@@ -89,20 +89,20 @@ func main() {
             data := []byte(t.Format(time.RFC822)) // message payload
             
             // broadcast message without an event on "/time" namespace
-            s.Broadcast <- sseserver.SSEMessage{"", data, "/time"}
+            s.Broadcast(sseserver.SSEMessage{"", data, "/time"})
         }
     }()
 
     // simulate sending some scoped events on the "/pets" namespace
     go func() {
         time.Sleep(5 * time.Second)
-        s.Broadcast <- sseserver.SSEMessage{"new-dog", []byte("Corgi"), "/pets/dogs"}
-        s.Broadcast <- sseserver.SSEMessage{"new-cat", []byte("Persian"), "/pets/cats"}
+        s.Broadcast(sseserver.SSEMessage{"new-dog", []byte("Corgi"), "/pets/dogs"})
+        s.Broadcast(sseserver.SSEMessage{"new-cat", []byte("Persian"), "/pets/cats"})
         time.Sleep(1 * time.Second)
-        s.Broadcast <- sseserver.SSEMessage{"new-dog", []byte("Terrier"), "/pets/dogs"}
-        s.Broadcast <- sseserver.SSEMessage{"new-dog", []byte("Dauchsand"), "/pets/cats"}
+        s.Broadcast(sseserver.SSEMessage{"new-dog", []byte("Terrier"), "/pets/dogs"})
+        s.Broadcast(sseserver.SSEMessage{"new-dog", []byte("Dauchsand"), "/pets/cats"})
         time.Sleep(2 * time.Second)
-        s.Broadcast <- sseserver.SSEMessage{"new-cat", []byte("LOLcat"), "/pets/cats"}
+        s.Broadcast(sseserver.SSEMessage{"new-cat", []byte("LOLcat"), "/pets/cats"})
     }()
 
     http.ListenAndServe(":8001", s) // bind to port and begin serving connections

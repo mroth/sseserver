@@ -22,10 +22,10 @@ import (
 // A hub should always be cancelled via Shutdown() when it is no longer needed,
 // in order to avoid leaking a goroutine.
 type hub struct {
-	broadcast  chan SSEMessage    // Inbound messages to propagate out
-	register   chan *connection   // Register requests from the connections
-	unregister chan *connection   // Unregister requests from connections
-	cancel     context.CancelFunc // CancelFunc to handle shutdown notification
+	broadcastCh  chan SSEMessage    // Inbound messages to propagate out
+	registerCh   chan *connection   // Register requests from the connections
+	unregisterCh chan *connection   // Unregister requests from connections
+	cancel       context.CancelFunc // CancelFunc to handle shutdown notification
 
 	// INTERNAL STATE
 	connections map[*connection]struct{} // Registered connections
@@ -40,12 +40,12 @@ type hub struct {
 func newHub() *hub {
 	ctx, cancel := context.WithCancel(context.Background())
 	h := &hub{
-		broadcast:   make(chan SSEMessage),
-		register:    make(chan *connection),
-		unregister:  make(chan *connection),
-		cancel:      cancel,
-		connections: make(map[*connection]struct{}),
-		startupTime: time.Now(),
+		broadcastCh:  make(chan SSEMessage),
+		registerCh:   make(chan *connection),
+		unregisterCh: make(chan *connection),
+		cancel:       cancel,
+		connections:  make(map[*connection]struct{}),
+		startupTime:  time.Now(),
 	}
 
 	h.running.Add(1)
@@ -55,6 +55,18 @@ func newHub() *hub {
 	}()
 
 	return h
+}
+
+func (h *hub) Broadcast(msg SSEMessage) {
+	h.broadcastCh <- msg
+}
+
+func (h *hub) Register(c *connection) {
+	h.registerCh <- c
+}
+
+func (h *hub) Unregister(c *connection) {
+	h.unregisterCh <- c
 }
 
 // Shutdown method for cancellation of hub run loop.
@@ -77,11 +89,11 @@ func (h *hub) eventloop(ctx context.Context) {
 		case <-ctx.Done():
 			h._shutdownAllConnections()
 			return
-		case c := <-h.register:
+		case c := <-h.registerCh:
 			h._registerConn(c)
-		case c := <-h.unregister:
+		case c := <-h.unregisterCh:
 			h._unregisterConn(c)
-		case msg := <-h.broadcast:
+		case msg := <-h.broadcastCh:
 			h._broadcastMessage(msg)
 		}
 	}

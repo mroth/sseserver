@@ -22,7 +22,7 @@ func main() {
 		for {
 			t := <-ticker
 			data := []byte(t.Format("3:04:05 pm (MST)"))
-			s.Broadcast <- sseserver.SSEMessage{Data: data, Namespace: "/time"}
+			s.Broadcast(sseserver.SSEMessage{Data: data, Namespace: "/time"})
 		}
 	}()
 

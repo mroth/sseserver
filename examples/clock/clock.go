@@ -23,7 +23,7 @@ func main() {
 			// create the message payload, can be any []byte value
 			data := []byte(t.Format(time.RFC822))
 			// send a message without an event on the "/time" namespace
-			s.Broadcast <- sseserver.SSEMessage{Data: data, Namespace: "/time"}
+			s.Broadcast(sseserver.SSEMessage{Data: data, Namespace: "/time"})
 		}
 	}()
 

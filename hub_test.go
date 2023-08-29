@@ -9,7 +9,7 @@ import (
 func mockHub(numConnections int) (h *hub) {
 	h = newHub()
 	for i := 0; i < numConnections; i++ {
-		h.register <- mockConn("/test")
+		h.Register(mockConn("/test"))
 	}
 	return h
 }
@@ -26,7 +26,7 @@ func mockSinkedHub(initialConnections map[string]int) (h *hub) {
 	h = newHub()
 	for namespace, num := range initialConnections {
 		for i := 0; i < num; i++ {
-			h.register <- mockSinkedConn(namespace, h)
+			h.Register(mockSinkedConn(namespace, h))
 		}
 	}
 	return h
@@ -45,7 +45,7 @@ func mockSinkedConn(namespace string, h *hub) *connection {
 			// (versus using <-c.send in infinite loop)
 		}
 		// in practice, a connection tries to unregister itself here
-		h.unregister <- c
+		h.Unregister(c)
 	}()
 	return c
 }
@@ -61,11 +61,11 @@ func TestBroadcastSingleplex(t *testing.T) {
 
 	c1 := mockConn("/foo")
 	c2 := mockConn("/bar")
-	h.register <- c1
-	h.register <- c2
+	h.Register(c1)
+	h.Register(c2)
 
 	//broadcast to foo channel
-	h.broadcast <- SSEMessage{"", []byte("yo"), "/foo"}
+	h.Broadcast(SSEMessage{"", []byte("yo"), "/foo"})
 	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
@@ -89,14 +89,14 @@ func TestBroadcastMultiplex(t *testing.T) {
 	c1 := mockConn("/foo")
 	c2 := mockConn("/foo")
 	c3 := mockConn("/burrito")
-	h.register <- c1
-	h.register <- c2
-	h.register <- c3
+	h.Register(c1)
+	h.Register(c2)
+	h.Register(c3)
 
 	//broadcast to channels
-	h.broadcast <- SSEMessage{"", []byte("yo"), "/foo"}
-	h.broadcast <- SSEMessage{"", []byte("yo"), "/foo"}
-	h.broadcast <- SSEMessage{"", []byte("yo"), "/bar"}
+	h.Broadcast(SSEMessage{"", []byte("yo"), "/foo"})
+	h.Broadcast(SSEMessage{"", []byte("yo"), "/foo"})
+	h.Broadcast(SSEMessage{"", []byte("yo"), "/bar"})
 	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
@@ -122,15 +122,15 @@ func TestBroadcastWildcards(t *testing.T) {
 	cWild := mockConn("/pets")
 	cOther := mockConn("/kids")
 
-	h.register <- cDogs
-	h.register <- cCats
-	h.register <- cWild
-	h.register <- cOther
+	h.Register(cDogs)
+	h.Register(cCats)
+	h.Register(cWild)
+	h.Register(cOther)
 
 	//broadcast to channels
-	h.broadcast <- SSEMessage{"", []byte("woof"), "/pets/dogs"}
-	h.broadcast <- SSEMessage{"", []byte("meow"), "/pets/cats"}
-	h.broadcast <- SSEMessage{"", []byte("wahh"), "/kids"}
+	h.Broadcast(SSEMessage{"", []byte("woof"), "/pets/dogs"})
+	h.Broadcast(SSEMessage{"", []byte("meow"), "/pets/cats"})
+	h.Broadcast(SSEMessage{"", []byte("wahh"), "/kids"})
 	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
@@ -158,11 +158,11 @@ func TestDoubleUnregister(t *testing.T) {
 
 	c1 := mockSinkedConn("/badseed", h)
 	c2 := mockSinkedConn("/goodseed", h)
-	h.register <- c1
-	h.register <- c2
-	h.unregister <- c1
-	h.unregister <- c1
-	h.broadcast <- SSEMessage{Data: []byte("no-op to ensure finished")}
+	h.Register(c1)
+	h.Register(c2)
+	h.Unregister(c1)
+	h.Unregister(c1)
+	h.Broadcast(SSEMessage{Data: []byte("no-op to ensure finished")})
 	// ^^ the above broadcast forces the hub run loop to be past the initial
 	// registrations, preventing a possible race condition.
 	actual, expected := len(h.connections), 1
@@ -177,9 +177,9 @@ func TestDoubleRegister(t *testing.T) {
 	defer h.Shutdown()
 
 	c1 := mockSinkedConn("/badseed", h)
-	h.register <- c1
-	h.register <- c1
-	h.broadcast <- SSEMessage{Data: []byte("no-op to ensure finished")}
+	h.Register(c1)
+	h.Register(c1)
+	h.Broadcast(SSEMessage{Data: []byte("no-op to ensure finished")})
 	// ^^ the above broadcast forces the hub run loop to be past the initial
 	// registrations, preventing a possible race condition.
 	actual, expected := len(h.connections), 1
@@ -196,9 +196,9 @@ func TestKillsStalledConnection(t *testing.T) {
 	namespace := "/tacos"
 	stalled := mockConn(namespace)         // slow connection - taco overflow
 	sinked := mockSinkedConn(namespace, h) // hungry connection - loves tacos
-	h.register <- stalled
-	h.register <- sinked
-	h.broadcast <- SSEMessage{Data: []byte("no-op to ensure finished")}
+	h.Register(stalled)
+	h.Register(sinked)
+	h.Broadcast(SSEMessage{Data: []byte("no-op to ensure finished")})
 	// ^^ the above broadcast forces the hub run loop to be past the initial
 	// registrations, preventing a possible race condition.
 	numSetupConns := len(h.connections)
@@ -209,7 +209,7 @@ func TestKillsStalledConnection(t *testing.T) {
 	// send connBufSize+50% messages, ensuring the buffer overflows
 	msg := SSEMessage{Data: []byte("hi"), Namespace: namespace}
 	for i := 0; i <= DefaultConnMsgBufferSize+(DefaultConnMsgBufferSize*0.5); i++ {
-		h.broadcast <- msg
+		h.Broadcast(msg)
 		// need to pause execution the tiniest bit to allow
 		// other goroutines to execute if running on GOMAXPROCS=1
 		time.Sleep(time.Microsecond)
@@ -234,7 +234,7 @@ func BenchmarkRegister(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		h.register <- c
+		h.Register(c)
 	}
 	b.StopTimer()
 }
@@ -247,9 +247,9 @@ func BenchmarkUnregister(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		h.register <- c
+		h.Register(c)
 		b.StartTimer()
-		h.unregister <- c
+		h.Unregister(c)
 		b.StopTimer()
 	}
 }
@@ -265,7 +265,7 @@ func BenchmarkBroadcast(b *testing.B) {
 
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				h.broadcast <- SSEMessage{"", msgBytes, "/test"}
+				h.Broadcast(SSEMessage{"", msgBytes, "/test"})
 			}
 			b.StopTimer()
 		})
@@ -294,7 +294,7 @@ func BenchmarkBroadcastNS(b *testing.B) {
 
 					b.ResetTimer()
 					for n := 0; n < b.N; n++ {
-						hub.broadcast <- SSEMessage{"", msgBytes, slashName}
+						hub.Broadcast(SSEMessage{"", msgBytes, slashName})
 					}
 					b.StopTimer()
 				})

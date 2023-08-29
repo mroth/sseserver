@@ -44,7 +44,7 @@ func main() {
 				msg.Data = randomBreed(dogBreeds)
 				msg.Namespace = "/pets/dogs"
 			}
-			s.Broadcast <- msg
+			s.Broadcast(msg)
 
 			r := rand.Intn(5) + 1
 			time.Sleep(time.Duration(r) * time.Second)

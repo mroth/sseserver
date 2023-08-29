@@ -8,16 +8,10 @@ import (
 
 // Server is the primary interface to a SSE server.
 //
-// Exposes a receive-only chan `Broadcast`: any SSEMessage sent to this channel
-// will be broadcast out to any connected clients subscribed to a namespace
-// that matches the message.
-//
 // Server implements the http.Handler interface, and can be chained into
 // existing HTTP routing muxes if desired.
 type Server struct {
-	Broadcast chan<- SSEMessage
-	hub       *hub
-
+	hub  *hub
 	conf serverConfig
 }
 
@@ -31,10 +25,7 @@ type serverConfig struct {
 func NewServer(opts ...ServerOption) (*Server, error) {
 	hub := newHub()
 	s := &Server{
-		// re-export just the hub's broadcast chan to public(will be typecast to receive-only)
-		Broadcast: hub.broadcast,
-		hub:       hub,
-
+		hub: hub,
 		conf: serverConfig{
 			ConnMsgBufSize:  DefaultConnMsgBufferSize,
 			CORSAllowOrigin: "",
@@ -49,6 +40,13 @@ func NewServer(opts ...ServerOption) (*Server, error) {
 	}
 
 	return s, nil
+}
+
+// Broadcast will broadcast out to any connected clients subscribed to a namespace
+// that matches the message.
+func (s *Server) Broadcast(msg SSEMessage) {
+	// TODO: improve function docs above ^^^
+	s.hub.Broadcast(msg)
 }
 
 // ServerOptions defines a set of high-level user options that can be customized
