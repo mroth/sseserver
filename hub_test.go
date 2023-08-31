@@ -66,7 +66,6 @@ func TestBroadcastSingleplex(t *testing.T) {
 
 	//broadcast to foo channel
 	h.Broadcast(SSEMessage{"", []byte("yo"), "/foo"})
-	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
 	d := []deliveryCase{
@@ -97,7 +96,6 @@ func TestBroadcastMultiplex(t *testing.T) {
 	h.Broadcast(SSEMessage{"", []byte("yo"), "/foo"})
 	h.Broadcast(SSEMessage{"", []byte("yo"), "/foo"})
 	h.Broadcast(SSEMessage{"", []byte("yo"), "/bar"})
-	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
 	d := []deliveryCase{
@@ -131,7 +129,6 @@ func TestBroadcastWildcards(t *testing.T) {
 	h.Broadcast(SSEMessage{"", []byte("woof"), "/pets/dogs"})
 	h.Broadcast(SSEMessage{"", []byte("meow"), "/pets/cats"})
 	h.Broadcast(SSEMessage{"", []byte("wahh"), "/kids"})
-	h.Shutdown() // ensures delivery is finished
 
 	//check for proper delivery
 	d := []deliveryCase{
@@ -162,9 +159,7 @@ func TestDoubleUnregister(t *testing.T) {
 	h.Register(c2)
 	h.Unregister(c1)
 	h.Unregister(c1)
-	h.Broadcast(SSEMessage{Data: []byte("no-op to ensure finished")})
-	// ^^ the above broadcast forces the hub run loop to be past the initial
-	// registrations, preventing a possible race condition.
+
 	actual, expected := len(h.connections), 1
 	if actual != expected {
 		t.Errorf("unexpected num of conns: got %v want %v", actual, expected)
@@ -179,9 +174,7 @@ func TestDoubleRegister(t *testing.T) {
 	c1 := mockSinkedConn("/badseed", h)
 	h.Register(c1)
 	h.Register(c1)
-	h.Broadcast(SSEMessage{Data: []byte("no-op to ensure finished")})
-	// ^^ the above broadcast forces the hub run loop to be past the initial
-	// registrations, preventing a possible race condition.
+
 	actual, expected := len(h.connections), 1
 	if actual != expected {
 		t.Errorf("unexpected num of conns: got %v want %v", actual, expected)
@@ -198,9 +191,7 @@ func TestKillsStalledConnection(t *testing.T) {
 	sinked := mockSinkedConn(namespace, h) // hungry connection - loves tacos
 	h.Register(stalled)
 	h.Register(sinked)
-	h.Broadcast(SSEMessage{Data: []byte("no-op to ensure finished")})
-	// ^^ the above broadcast forces the hub run loop to be past the initial
-	// registrations, preventing a possible race condition.
+
 	numSetupConns := len(h.connections)
 	if numSetupConns != 2 {
 		t.Fatal("unexpected num of conns after test setup!:", numSetupConns)
