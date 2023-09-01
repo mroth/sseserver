@@ -23,8 +23,8 @@ import (
 type hub struct {
 	connections map[*connection]struct{}
 	mu          sync.Mutex
-	sentMsgs    uint64    // Msgs broadcast since startup
 	startupTime time.Time // Time hub was created
+	sentMsgs    uint64    // Msgs broadcast since startup
 }
 
 func newHub() *hub {

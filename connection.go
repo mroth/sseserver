@@ -34,10 +34,11 @@ func newConnection(w http.ResponseWriter, r *http.Request, namespace string, buf
 type ConnectionStatus struct {
 	Path       string `json:"request_path"`
 	Namespace  string `json:"namespace"`
-	Created    int64  `json:"created_at"`
 	RemoteAddr string `json:"remote_addr"`
 	UserAgent  string `json:"user_agent"`
-	MsgsSent   uint64 `json:"msgs_sent"`
+
+	Created  int64  `json:"created_at"`
+	MsgsSent uint64 `json:"msgs_sent"`
 }
 
 // Status returns a snaphot of status metadata for the connection.
