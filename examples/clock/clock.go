@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -8,7 +9,10 @@ import (
 )
 
 func main() {
-	s := sseserver.NewServer()
+	s, err := sseserver.NewServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// broadcast the time every second to the "/time" namespace
 	go func() {
@@ -17,9 +21,9 @@ func main() {
 			// wait for the ticker to fire
 			t := <-ticker
 			// create the message payload, can be any []byte value
-			data := []byte(t.Format("3:04:05 pm (MST)"))
+			data := []byte(t.Format(time.RFC822))
 			// send a message without an event on the "/time" namespace
-			s.Broadcast <- sseserver.SSEMessage{Data: data, Namespace: "/time"}
+			s.Broadcast(sseserver.SSEMessage{Data: data, Namespace: "/time"})
 		}
 	}()
 

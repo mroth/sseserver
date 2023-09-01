@@ -5,63 +5,100 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 )
 
 /*
 New connections should get...
- - HTTP status OK 200
- - content-type event-stream
- - check all headers match what we want
+  - HTTP status OK 200
+  - content-type event-stream
+  - check all headers match what we want
 */
 func TestConnectionHandler(t *testing.T) {
-	// need to have a running hub, otherwise conn blocks trying to register
-	h := newHub()
-	h.Start()
-	defer h.Shutdown()
-
-	// use http.Request with Timeout context, so it will close itself, this
-	// is a hacky way to just disconnect after we have all the headers without
-	// messing around with modifying the http.ResponseRecorder too much.
-	//
-	// See also: https://github.com/golang/go/issues/4436
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
+	var testcases = []struct {
+		name          string
+		opts          []ServerOption
+		expectStatus  int
+		expectHeaders http.Header
+	}{
+		{
+			name:         "default",
+			opts:         nil,
+			expectStatus: http.StatusOK,
+			expectHeaders: http.Header{
+				"Content-Type":  {"text/event-stream; charset=utf-8"},
+				"Connection":    {"keep-alive"},
+				"Cache-Control": {"no-cache"},
+			},
+		},
+		{
+			name: "cors",
+			opts: []ServerOption{
+				WithCORSAllowOrigin("*"),
+			},
+			expectStatus: http.StatusOK,
+			expectHeaders: http.Header{
+				"Content-Type":                {"text/event-stream; charset=utf-8"},
+				"Connection":                  {"keep-alive"},
+				"Cache-Control":               {"no-cache"},
+				"Access-Control-Allow-Origin": {"*"},
+			},
+		},
 	}
-	rr := httptest.NewRecorder()
-	handler := connectionHandler(h)
-	ctx := req.Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
-	defer cancel()
-	handler.ServeHTTP(rr, req.WithContext(ctx))
 
-	t.Run("status", func(t *testing.T) {
-		expect := http.StatusOK
-		if status := rr.Code; status != expect {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, expect)
-		}
-	})
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("headers", func(t *testing.T) {
-		var headerTests = []struct {
-			header, expect string
-		}{
-			{"Content-type", "text/event-stream; charset=utf-8"},
-			{"Connection", "keep-alive"},
-			{"Cache-Control", "no-cache"},
-			{"Access-Control-Allow-Origin", "*"},
-		}
-		hd := rr.Header()
-		for _, ht := range headerTests {
-			if actual := hd.Get(ht.header); actual != ht.expect {
-				t.Errorf("%s header does not match: got %v want %v",
-					ht.header, actual, ht.expect)
+			// need a running hub otherwise connection handler will block trying to register
+			s, err := NewServer(tc.opts...)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
-	})
+			defer s.Shutdown()
+			handler := connectionHandler(s)
+
+			// the connection will remain open to be available to stream content, so here we set a
+			// timeout on the request context in order to drop the connection from the client side
+			// after we have the headers
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+			defer cancel()
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			// check status code
+			if got, want := rr.Code, tc.expectStatus; got != want {
+				t.Errorf("unexpected status code: got %v want %v", got, want)
+			}
+
+			// check for missing headers or incorrect header values
+			gotHeaders := rr.Result().Header
+			for key, wantVal := range tc.expectHeaders {
+				gotVal, found := gotHeaders[key]
+				if !found {
+					t.Errorf("missing expected header: %v: %v", key, wantVal)
+				} else if !reflect.DeepEqual(gotVal, wantVal) {
+					t.Errorf("%v: got %v want %v", key, gotVal, wantVal)
+				}
+			}
+
+			// check for presence of any unexpected headers
+			for k, v := range gotHeaders {
+				_, found := tc.expectHeaders[k]
+				if !found {
+					t.Errorf("found unexpected header: %v: %v", k, v)
+				}
+			}
+		})
+	}
 
 }
 
@@ -73,7 +110,7 @@ func TestConnectionSend(t *testing.T) {
 	// if able to move [r,w] out of connection wont need these...
 	req, _ := http.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
-	c := newConnection(rr, req, "butts")
+	c := newConnection(rr, req, "test", DefaultConnMsgBufferSize)
 
 	// async send a sse msg 2x then close
 	msg := SSEMessage{Event: "foo", Data: []byte("bar")}

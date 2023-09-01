@@ -3,9 +3,10 @@ package sseserver
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/azer/debug"
+	"github.com/mroth/sseserver/internal/debug"
 )
 
 // A hub keeps track of all the active client connections, and handles
@@ -13,87 +14,34 @@ import (
 // namespace.
 //
 // The hub is effectively the "heart" of a Server, but is kept private to hide
-// implementation detais.
+// implementation details.
+//
+// To create a hub, use newHub() to ensure it is initialized properly.
+//
+// A hub should always be cancelled via Shutdown() when it is no longer needed,
+// in order to avoid leaking a goroutine.
 type hub struct {
-	broadcast   chan SSEMessage      // Inbound messages to propagate out.
-	connections map[*connection]bool // Registered connections.
-	register    chan *connection     // Register requests from the connections.
-	unregister  chan *connection     // Unregister requests from connections.
-	shutdown    chan bool            // Internal chan to handle shutdown notification
-	sentMsgs    uint64               // Msgs broadcast since startup
-	startupTime time.Time            // Time hub was created
+	connections map[*connection]struct{}
+	mu          sync.Mutex
+	startupTime time.Time // Time hub was created
+	sentMsgs    uint64    // Msgs broadcast since startup
 }
 
 func newHub() *hub {
 	return &hub{
-		broadcast:   make(chan SSEMessage),
-		connections: make(map[*connection]bool),
-		register:    make(chan *connection),
-		unregister:  make(chan *connection),
-		shutdown:    make(chan bool),
+		connections: make(map[*connection]struct{}),
 		startupTime: time.Now(),
 	}
 }
 
-// Shutdown method for cancellation of hub run loop.
+// Broadcast a SSEMessage to all connections subscribed to the msg namespace.
 //
-// right now we are only using this in tests, in the future we may want to be
-// able to more gracefully shut down a Server in production as well, but...
-//
-// TODO: need to do some thinking before exposing this interface more broadly.
-func (h *hub) Shutdown() {
-	h.shutdown <- true
-}
+// If this fails due to any connection having a full message buffer, attempts to
+// terminate that connection.
+func (h *hub) Broadcast(msg SSEMessage) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
-// Start begins the main run loop for a hub in a background go func.
-func (h *hub) Start() {
-	go h.run()
-}
-
-func (h *hub) run() {
-	for {
-		select {
-		case <-h.shutdown:
-			debug.Debug(fmt.Sprintf("hub shutdown requested, cancelling %d connections...", len(h.connections)))
-			for c := range h.connections {
-				h._shutdownConn(c)
-			}
-			debug.Debug("...All connections cancelled, shutting down now.")
-			return
-		case c := <-h.register:
-			debug.Debug("new connection being registered for " + c.namespace)
-			h.connections[c] = true
-		case c := <-h.unregister:
-			debug.Debug("connection told us to unregister for " + c.namespace)
-			h._unregisterConn(c)
-		case msg := <-h.broadcast:
-			h.sentMsgs++
-			h._broadcastMessage(msg)
-		}
-	}
-}
-
-// internal method, removes that client from the hub and tells it to shutdown
-// _unregister is safe to call multiple times with the same connection
-func (h *hub) _unregisterConn(c *connection) {
-	delete(h.connections, c)
-}
-
-// internal method, removes that client from the hub and tells it to shutdown
-// must only be called once for a given connection to avoid panic!
-func (h *hub) _shutdownConn(c *connection) {
-	// for maximum safety, ALWAYS unregister a connection from the hub prior to
-	// shutting it down, as we want no possibility of a send on closed channel
-	// panic.
-	h._unregisterConn(c)
-	// close the connection's send channel, which will cause it to exit its
-	// event loop and return to the HTTP handler.
-	close(c.send)
-}
-
-// internal method, broadcast a message to all matching clients if this fails
-// due to any client having a full send buffer,
-func (h *hub) _broadcastMessage(msg SSEMessage) {
 	formattedMsg := msg.sseFormat()
 	for c := range h.connections {
 		if strings.HasPrefix(msg.Namespace, c.namespace) {
@@ -102,20 +50,77 @@ func (h *hub) _broadcastMessage(msg SSEMessage) {
 			default:
 				debug.Debug("cant pass to a connection send chan, buffer is full -- kill it with fire")
 				h._shutdownConn(c)
-				/*
-					we are already closing the send channel, in *theory* shouldn't the
-					connection clean up? I guess possible it doesnt if its deadlocked or
-					something... is it?
-
-					closing the send channel will result in our handleFunc exiting, which Go
-					treats as meaning we are done with the connection... but what if it's wedged?
-
-					TODO: investigate using panic in a http.Handler, to absolutely force
-
-					we want to make sure to always close the HTTP connection though,
-					so server can never fill up max num of open sockets.
-				*/
+				// we are already closing the send channel, in *theory* shouldn't the
+				// connection clean up? I guess possible it doesnt if its deadlocked or
+				// something... is it?
+				//
+				// closing the send channel will result in our handleFunc exiting, which Go
+				// treats as meaning we are done with the connection... but what if it's wedged?
+				//
+				// TODO: investigate using panic in a http.Handler, to absolutely force
+				//
+				// we want to make sure to always close the HTTP connection though,
+				// so server can never fill up max num of open sockets.
 			}
 		}
 	}
+
+	h.sentMsgs++
+}
+
+// Register a connection to receive broadcast messages
+func (h *hub) Register(c *connection) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	debug.Debug("new connection being registered for " + c.namespace)
+	h.connections[c] = struct{}{}
+}
+
+// Unregister a connection to receive broadcast messages
+func (h *hub) Unregister(c *connection) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	debug.Debug("connection told us to unregister for " + c.namespace)
+	h._unregister(c)
+}
+
+func (h *hub) _unregister(c *connection) {
+	delete(h.connections, c)
+}
+
+// Shutdown method for cancellation of hub run loop.
+//
+// TODO: consider taking a ctx similar to http.Server
+func (h *hub) Shutdown() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	debug.Debug(fmt.Sprintf("hub shutdown requested, cancelling %d connections...", len(h.connections)))
+	for c := range h.connections {
+		h._shutdownConn(c)
+	}
+	debug.Debug("...All connections cancelled, shutting down now.")
+
+	// TODO: currently we exit after signalling all connections no more messages
+	// to come, and eventloop exits, but do not wait for connections to complete
+	// writing to clients or closing (e.g. connections still have active
+	// background goroutines) -- consider also forcing connections closed after
+	// a certain point? likely utilize passed ctx as deadline to kill with fire.
+}
+
+// _shutdownConn first unregisters the connection from the hub and then tells it
+// to shutdown by closing the connection's send channel.
+//
+// SAFETY: must only be called once for a given connection to avoid panic!
+func (h *hub) _shutdownConn(c *connection) {
+	// for maximum safety, ALWAYS unregister a connection from the hub prior to
+	// shutting it down, as we want no possibility of a send on closed channel
+	// panic.
+	h._unregister(c)
+
+	// close the connection's send channel, which will cause it to exit its
+	// event loop and return to the HTTP handler.
+	close(c.send)
 }

@@ -4,23 +4,25 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/azer/debug"
+	"github.com/mroth/sseserver/internal/debug"
 )
 
-const connBufSize = 256
+const (
+	DefaultConnMsgBufferSize = 256 // default per-connection message buffer size
+)
 
 type connection struct {
-	r         *http.Request       // The HTTP request
-	w         http.ResponseWriter // The HTTP response
+	r         *http.Request       // HTTP Request that spawned the connection
+	w         http.ResponseWriter // HTTP ResponseWriter for connection
 	created   time.Time           // Timestamp for when connection was opened
 	send      chan []byte         // Buffered channel of outbound messages
 	namespace string              // Conceptual "channel" SSE client is requesting
 	msgsSent  uint64              // Msgs the connection has sent (all time)
 }
 
-func newConnection(w http.ResponseWriter, r *http.Request, namespace string) *connection {
+func newConnection(w http.ResponseWriter, r *http.Request, namespace string, bufCount uint) *connection {
 	return &connection{
-		send:      make(chan []byte, connBufSize),
+		send:      make(chan []byte, bufCount),
 		w:         w,
 		r:         r,
 		created:   time.Now(),
@@ -28,23 +30,28 @@ func newConnection(w http.ResponseWriter, r *http.Request, namespace string) *co
 	}
 }
 
-type connectionStatus struct {
-	Path      string `json:"request_path"`
-	Namespace string `json:"namespace"`
-	Created   int64  `json:"created_at"`
-	ClientIP  string `json:"client_ip"`
-	UserAgent string `json:"user_agent"`
-	MsgsSent  uint64 `json:"msgs_sent"`
+// ConnectionStatus is snapshot of metadata describing the status of a connection.
+type ConnectionStatus struct {
+	Path       string `json:"request_path"`
+	Namespace  string `json:"namespace"`
+	RemoteAddr string `json:"remote_addr"`
+	UserAgent  string `json:"user_agent"`
+
+	Created  int64  `json:"created_at"`
+	MsgsSent uint64 `json:"msgs_sent"`
 }
 
-func (c *connection) Status() connectionStatus {
-	return connectionStatus{
-		Path:      c.r.URL.Path,
-		Namespace: c.namespace,
-		Created:   c.created.Unix(),
-		ClientIP:  c.r.RemoteAddr,
-		UserAgent: c.r.UserAgent(),
-		MsgsSent:  c.msgsSent,
+// Status returns a snaphot of status metadata for the connection.
+//
+// Primarily intended for logging and reporting.
+func (c *connection) Status() ConnectionStatus {
+	return ConnectionStatus{
+		Path:       c.r.URL.Path,
+		Namespace:  c.namespace,
+		Created:    c.created.Unix(),
+		RemoteAddr: c.r.RemoteAddr,
+		UserAgent:  c.r.UserAgent(),
+		MsgsSent:   c.msgsSent,
 	}
 }
 
@@ -62,15 +69,14 @@ func (c *connection) writer() {
 	for {
 		select {
 		case msg, ok := <-c.send:
-			if !ok { // chan was closed
-				// ...our hub told us we have nothing left to do
+			if !ok { // send chan was closed (hub told us we have nothing left to do)
 				debug.Debug("hub told us to shut down")
 				return
 			}
 			// otherwise write message out to client
 			_, err := c.w.Write(msg)
 			if err != nil {
-				debug.Debug("Error writing msg to client, closing")
+				debug.Debug("error writing msg to client, closing")
 				return
 			}
 			if f, ok := c.w.(http.Flusher); ok {
@@ -81,7 +87,7 @@ func (c *connection) writer() {
 		case <-keepaliveTickler.C:
 			_, err := c.w.Write(keepaliveMsg)
 			if err != nil {
-				debug.Debug("Error writing keepalive to client, closing")
+				debug.Debug("error writing keepalive to client, closing")
 				return
 			}
 			if f, ok := c.w.(http.Flusher); ok {
@@ -95,22 +101,25 @@ func (c *connection) writer() {
 	}
 }
 
-func connectionHandler(h *hub) http.Handler {
+// connectionHandler returns a http.HandlerFunc that sets up a connections to
+// register with the server hub.
+func connectionHandler(s *Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// write headers
 		headers := w.Header()
-		headers.Set("Access-Control-Allow-Origin", "*") // TODO: make optional
 		headers.Set("Content-Type", "text/event-stream; charset=utf-8")
 		headers.Set("Cache-Control", "no-cache")
 		headers.Set("Connection", "keep-alive")
-		headers.Set("Server", "mroth/sseserver")
+		if origin := s.conf.CORSAllowOrigin; origin != "" {
+			headers.Set("Access-Control-Allow-Origin", origin)
+		}
 
 		// get namespace from URL path, init connection & register with hub
 		namespace := r.URL.Path
-		c := newConnection(w, r, namespace)
-		h.register <- c
+		c := newConnection(w, r, namespace, s.conf.ConnMsgBufSize)
+		s.hub.Register(c)
 		defer func() {
-			h.unregister <- c
+			s.hub.Unregister(c)
 		}()
 
 		// start the connection's main broadcasting event loop

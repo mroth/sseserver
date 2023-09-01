@@ -76,34 +76,36 @@ import (
 )
 
 func main() {
-    s := sseserver.NewServer() // create a new server instance
+	s, err := sseserver.NewServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 
     // broadcast the time every second to the "/time" namespace
     go func() {
         ticker := time.Tick(time.Duration(1 * time.Second))
-        for {
-            // wait for the ticker to fire
-            t := <-ticker
-            // create the message payload, can be any []byte value
-            data := []byte(t.Format("3:04:05 pm (MST)"))
-            // send a message without an event on the "/time" namespace
-            s.Broadcast <- sseserver.SSEMessage{"", data, "/time"}
+        for { 
+            t := <-ticker // wait for the ticker to fire
+            data := []byte(t.Format(time.RFC822)) // message payload
+            
+            // broadcast message without an event on "/time" namespace
+            s.Broadcast(sseserver.SSEMessage{"", data, "/time"})
         }
     }()
 
     // simulate sending some scoped events on the "/pets" namespace
     go func() {
         time.Sleep(5 * time.Second)
-        s.Broadcast <- sseserver.SSEMessage{"new-dog", []byte("Corgi"), "/pets/dogs"}
-        s.Broadcast <- sseserver.SSEMessage{"new-cat", []byte("Persian"), "/pets/cats"}
+        s.Broadcast(sseserver.SSEMessage{"new-dog", []byte("Corgi"), "/pets/dogs"})
+        s.Broadcast(sseserver.SSEMessage{"new-cat", []byte("Persian"), "/pets/cats"})
         time.Sleep(1 * time.Second)
-        s.Broadcast <- sseserver.SSEMessage{"new-dog", []byte("Terrier"), "/pets/dogs"}
-        s.Broadcast <- sseserver.SSEMessage{"new-dog", []byte("Dauchsand"), "/pets/cats"}
+        s.Broadcast(sseserver.SSEMessage{"new-dog", []byte("Terrier"), "/pets/dogs"})
+        s.Broadcast(sseserver.SSEMessage{"new-dog", []byte("Dauchsand"), "/pets/cats"})
         time.Sleep(2 * time.Second)
-        s.Broadcast <- sseserver.SSEMessage{"new-cat", []byte("LOLcat"), "/pets/cats"}
+        s.Broadcast(sseserver.SSEMessage{"new-cat", []byte("LOLcat"), "/pets/cats"})
     }()
 
-    s.Serve(":8001") // bind to port and begin serving connections
+    http.ListenAndServe(":8001", s) // bind to port and begin serving connections
 }
 ```
 
@@ -183,12 +185,16 @@ EventSource standard should already automatically ignore and filter out these
 messages for you.
 
 ### Admin Page
-By default, an admin status page is available for easy monitoring.
+
+Out of the box, an admin status page is available for easy monitoring of active
+connections.
 
 ![screenshot](http://f.cl.ly/items/1v2X1k342K3p0K1O2x0B/ssestreamer-admin.png)
 
 It's powered by a simple JSON API endpoint, which you can also use to build your
-own reporting.  These endpoints can be disabled in the settings (see `Server.Options`).
+own reporting.
+
+See `examples/enable-admin` to see how to activate.
 
 ### HTTP Middleware
 

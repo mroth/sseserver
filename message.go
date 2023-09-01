@@ -5,6 +5,8 @@ package sseserver
 // Note: Namespace is not part of the SSE spec, it is merely used internally to
 // map a message to the appropriate HTTP virtual endpoint.
 //
+// The most up to date and authoritative documentation is:
+// https://html.spec.whatwg.org/multipage/server-sent-events.html
 type SSEMessage struct {
 	Event     string // event scope for the message [optional]
 	Data      []byte // message payload

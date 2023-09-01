@@ -6,7 +6,9 @@ deserialize back into Javascript objects on the client side.
 package main
 
 import (
+	"log"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/mroth/sseserver"
@@ -24,7 +26,10 @@ func randomBreed(breeds []string) []byte {
 }
 
 func main() {
-	s := sseserver.NewServer()
+	s, err := sseserver.NewServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// simulate sending some scoped events on the "/pets" namespace
 	go func() {
@@ -39,12 +44,28 @@ func main() {
 				msg.Data = randomBreed(dogBreeds)
 				msg.Namespace = "/pets/dogs"
 			}
-			s.Broadcast <- msg
+			s.Broadcast(msg)
 
 			r := rand.Intn(5) + 1
 			time.Sleep(time.Duration(r) * time.Second)
 		}
 	}()
 
-	s.Serve(":8222") // bind to port and beging serving connections
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
+	})
+	http.Handle("/subscribe/", requestLogger(s))
+	http.ListenAndServe(":8222", nil)
+}
+
+// requestLogger is a sample of integrating logging via HTTP middleware.
+//
+// Note that due to the long connection time of SSE requests you likely want to
+// log connection and disconnection separately.
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("CONNECT\t", r.URL.Path, "\t", r.RemoteAddr)
+		next.ServeHTTP(w, r)
+		log.Println("DISCONNECT\t", r.URL.Path, "\t", r.RemoteAddr)
+	})
 }
