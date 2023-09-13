@@ -250,7 +250,7 @@ func BenchmarkUnregister(b *testing.B) {
 
 func BenchmarkBroadcast(b *testing.B) {
 	var msgBytes = []byte("foo bar woo")
-	var sizes = []int{1, 10, 100, 500, 1000, 10000}
+	var sizes = []int{1, 10, 100, 500, 1000, 10000, 100000}
 
 	for _, s := range sizes {
 		b.Run(strconv.Itoa(s), func(b *testing.B) {
@@ -268,7 +268,7 @@ func BenchmarkBroadcast(b *testing.B) {
 // benchmark for namespaced benchmarked
 func BenchmarkBroadcastNS(b *testing.B) {
 	var msgBytes = []byte("foo bar woo")
-	var sizes = []int{100, 1000, 10000}
+	var sizes = []int{100, 1000, 10000, 100000}
 
 	mockDensityHub := func(s int) *hub {
 		return mockSinkedHub(map[string]int{
