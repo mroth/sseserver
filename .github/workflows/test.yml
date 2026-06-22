@@ -16,7 +16,7 @@ jobs:
           - "1.17"
     name: Go ${{ matrix.go }} test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
