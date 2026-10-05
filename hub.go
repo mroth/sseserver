@@ -3,6 +3,7 @@ package sseserver
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/azer/debug"
@@ -15,6 +16,8 @@ import (
 // The hub is effectively the "heart" of a Server, but is kept private to hide
 // implementation detais.
 type hub struct {
+	mu sync.RWMutex // Protects connection membership and broadcast counts during status reads.
+
 	broadcast   chan SSEMessage      // Inbound messages to propagate out.
 	connections map[*connection]bool // Registered connections.
 	register    chan *connection     // Register requests from the connections.
@@ -54,21 +57,29 @@ func (h *hub) run() {
 	for {
 		select {
 		case <-h.shutdown:
+			h.mu.Lock()
 			debug.Debug(fmt.Sprintf("hub shutdown requested, cancelling %d connections...", len(h.connections)))
 			for c := range h.connections {
 				h._shutdownConn(c)
 			}
 			debug.Debug("...All connections cancelled, shutting down now.")
+			h.mu.Unlock()
 			return
 		case c := <-h.register:
+			h.mu.Lock()
 			debug.Debug("new connection being registered for " + c.namespace)
 			h.connections[c] = true
+			h.mu.Unlock()
 		case c := <-h.unregister:
+			h.mu.Lock()
 			debug.Debug("connection told us to unregister for " + c.namespace)
 			h._unregisterConn(c)
+			h.mu.Unlock()
 		case msg := <-h.broadcast:
+			h.mu.Lock()
 			h.sentMsgs++
 			h._broadcastMessage(msg)
+			h.mu.Unlock()
 		}
 	}
 }
