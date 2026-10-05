@@ -41,12 +41,19 @@ func (s *Server) Status() ReportingStatus {
 		Status:      "OK",
 		Reported:    time.Now().Unix(),
 		StartupTime: s.hub.startupTime.Unix(),
-		SentMsgs:    s.hub.sentMsgs,
 	}
 
+	s.hub.mu.RLock()
+	stats.SentMsgs = s.hub.sentMsgs
+	connections := make([]*connection, 0, len(s.hub.connections))
+	for c := range s.hub.connections {
+		connections = append(connections, c)
+	}
+	s.hub.mu.RUnlock()
+
 	stats.Connections = connStatusList{}
-	for k := range s.hub.connections {
-		stats.Connections = append(stats.Connections, k.Status())
+	for _, c := range connections {
+		stats.Connections = append(stats.Connections, c.Status())
 	}
 	sort.Sort(stats.Connections)
 

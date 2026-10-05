@@ -2,6 +2,7 @@ package sseserver
 
 import (
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/azer/debug"
@@ -10,12 +11,14 @@ import (
 const connBufSize = 256
 
 type connection struct {
+	// Keep the counter first for atomic alignment on 32-bit systems.
+	msgsSent uint64 // Msgs the connection has sent (all time)
+
 	r         *http.Request       // The HTTP request
 	w         http.ResponseWriter // The HTTP response
 	created   time.Time           // Timestamp for when connection was opened
 	send      chan []byte         // Buffered channel of outbound messages
 	namespace string              // Conceptual "channel" SSE client is requesting
-	msgsSent  uint64              // Msgs the connection has sent (all time)
 }
 
 func newConnection(w http.ResponseWriter, r *http.Request, namespace string) *connection {
@@ -44,7 +47,7 @@ func (c *connection) Status() connectionStatus {
 		Created:   c.created.Unix(),
 		ClientIP:  c.r.RemoteAddr,
 		UserAgent: c.r.UserAgent(),
-		MsgsSent:  c.msgsSent,
+		MsgsSent:  atomic.LoadUint64(&c.msgsSent),
 	}
 }
 
@@ -75,7 +78,7 @@ func (c *connection) writer() {
 			}
 			if f, ok := c.w.(http.Flusher); ok {
 				f.Flush()
-				c.msgsSent++
+				atomic.AddUint64(&c.msgsSent, 1)
 			}
 
 		case <-keepaliveTickler.C:
